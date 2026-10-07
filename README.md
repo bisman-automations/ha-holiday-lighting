@@ -62,11 +62,17 @@ On the integration page, use **Add holiday** to add more holidays, or the ⋮ me
 | --- | --- |
 | Same dates every year | `12-01` to `12-26`. Ranges can wrap the new year (`12-31` to `01-01`). |
 | Weekday rule | 4th Thursday of November, last Monday of May. Add days before and after. |
-| Around Easter | Easter Sunday, plus days before and after. Calculated every year. |
+| Relative to Easter | A number of days from Easter Sunday (e.g. 49 for Pentecost), plus days before and after. Calculated every year. |
 | One-time event | A start and end date with a year, e.g. a party or graduation. |
 | Calendar | Any night a calendar has an event, optionally only events whose title contains a keyword (e.g. `Bison`). |
 
-Presets: New Year's, Valentine's Day, St. Patrick's Day, Easter, Mother's Day, Memorial Day, Independence Day, Labor Day, Halloween, Veterans Day, Thanksgiving, and Christmas. Moving holidays are calculated for each year.
+Presets: New Year's, Presidents' Day, Valentine's Day, St. Patrick's Day, Easter, Earth Day, Cinco de Mayo, Mother's Day, Memorial Day, Month of the Sacred Heart of Jesus, Father's Day, Juneteenth, Independence Day, Labor Day, Patriot Day, Halloween, Día de los Muertos, Veterans Day, Thanksgiving, Christmas, and Kwanzaa.
+
+Catholic feast days: Epiphany, St. Joseph, Annunciation, Divine Mercy Sunday, Pentecost, Corpus Christi (Sunday), Feast of the Sacred Heart, Immaculate Heart of Mary, Assumption of Mary, All Saints' Day, All Souls' Day, Immaculate Conception, and Our Lady of Guadalupe.
+
+Moving holidays and feasts are calculated for each year.
+
+Holidays on the lunar or Hebrew calendars (Lunar New Year, Mardi Gras, Hanukkah, Diwali, Ramadan) aren't presets yet. Add them as a one-time event each year, or as a calendar holiday using a holiday calendar.
 
 Every holiday also has:
 

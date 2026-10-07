@@ -36,6 +36,7 @@ CONF_WEEK: Final = "week"  # 1-4, or -1 for the last
 CONF_WEEKDAY: Final = "weekday"  # 0 = Monday
 CONF_DAYS_BEFORE: Final = "days_before"
 CONF_DAYS_AFTER: Final = "days_after"
+CONF_EASTER_OFFSET: Final = "easter_offset"  # days from Easter Sunday
 CONF_START_DATE: Final = "start_date"
 CONF_END_DATE: Final = "end_date"
 CONF_CALENDAR: Final = "calendar"

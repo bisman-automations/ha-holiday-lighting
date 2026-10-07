@@ -17,6 +17,7 @@ from homeassistant.util.color import color_name_to_rgb
 from .const import (
     CONF_DAYS_AFTER,
     CONF_DAYS_BEFORE,
+    CONF_EASTER_OFFSET,
     CONF_END,
     CONF_END_DATE,
     CONF_KIND,
@@ -121,7 +122,9 @@ def holiday_windows(holiday: Mapping[str, Any], year: int) -> list[tuple[date, d
         return [(start, end)]
     if kind in (KIND_NTH_WEEKDAY, KIND_EASTER):
         if kind == KIND_EASTER:
-            anchor = easter_sunday(year)
+            anchor = easter_sunday(year) + timedelta(
+                days=int(holiday.get(CONF_EASTER_OFFSET, 0))
+            )
         else:
             anchor = nth_weekday(
                 year,

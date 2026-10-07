@@ -119,7 +119,8 @@
             "start_date": "Start date",
             "end_date": "End date",
             "calendar": "Calendar",
-            "keyword": "Event keyword"
+            "keyword": "Event keyword",
+            "easter_offset": "Days from Easter"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -132,7 +133,8 @@
             "days_after": "Keep going this many days after the date.",
             "keyword": "Only events whose title contains this. Leave empty for every event.",
             "calendar": "The theme shows on any evening with a matching event.",
-            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors."
+            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors.",
+            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost."
           },
           "sections": {
             "schedule_override": {
@@ -171,7 +173,8 @@
             "start_date": "Start date",
             "end_date": "End date",
             "calendar": "Calendar",
-            "keyword": "Event keyword"
+            "keyword": "Event keyword",
+            "easter_offset": "Days from Easter"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -184,7 +187,8 @@
             "days_after": "Keep going this many days after the date.",
             "keyword": "Only events whose title contains this. Leave empty for every event.",
             "calendar": "The theme shows on any evening with a matching event.",
-            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors."
+            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors.",
+            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost."
           },
           "sections": {
             "schedule_override": {
@@ -209,7 +213,7 @@
           "menu_options": {
             "yearly": "Same dates every year",
             "nth_weekday": "A weekday rule, e.g. 4th Thursday of November",
-            "easter": "Around Easter",
+            "easter": "Relative to Easter, e.g. Pentecost",
             "once": "A one-time event",
             "calendar": "Whenever a calendar has an event"
           }
@@ -243,7 +247,29 @@
         "mothers_day": "Mother's Day",
         "memorial_day": "Memorial Day",
         "labor_day": "Labor Day",
-        "veterans_day": "Veterans Day"
+        "veterans_day": "Veterans Day",
+        "presidents_day": "Presidents' Day",
+        "earth_day": "Earth Day",
+        "cinco_de_mayo": "Cinco de Mayo",
+        "sacred_heart_month": "Month of the Sacred Heart of Jesus",
+        "fathers_day": "Father's Day",
+        "juneteenth": "Juneteenth",
+        "patriot_day": "Patriot Day",
+        "dia_de_los_muertos": "Día de los Muertos",
+        "kwanzaa": "Kwanzaa",
+        "epiphany": "Epiphany",
+        "st_joseph": "St. Joseph",
+        "annunciation": "Annunciation",
+        "divine_mercy": "Divine Mercy Sunday",
+        "pentecost": "Pentecost",
+        "corpus_christi": "Corpus Christi",
+        "sacred_heart_feast": "Feast of the Sacred Heart",
+        "immaculate_heart": "Immaculate Heart of Mary",
+        "assumption": "Assumption of Mary",
+        "all_saints": "All Saints' Day",
+        "all_souls": "All Souls' Day",
+        "immaculate_conception": "Immaculate Conception",
+        "guadalupe": "Our Lady of Guadalupe"
       }
     },
     "dark_source": {

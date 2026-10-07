@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-07
+
+### Added
+
+- **More presets:** Presidents' Day, Earth Day, Cinco de Mayo, Month of the Sacred Heart of Jesus, Father's Day (3rd Sunday of June), Juneteenth, Patriot Day, Día de los Muertos, and Kwanzaa.
+- **Catholic feast day presets:** Epiphany, St. Joseph, Annunciation, Divine Mercy Sunday, Pentecost, Corpus Christi, Feast of the Sacred Heart, Immaculate Heart of Mary, Assumption of Mary, All Saints' Day, All Souls' Day, Immaculate Conception, and Our Lady of Guadalupe. Easter-relative feasts are calculated every year.
+- **Days from Easter** for "Relative to Easter" holidays, so a custom holiday can be any day around Easter, like Ascension or Trinity Sunday. Existing Easter holidays are unchanged.
+- **Open in HACS** and **Add integration** buttons in the README.
+
 ## [1.3.1] - 2026-10-07
 
 ### Fixed
@@ -85,7 +94,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.1.0...v1.2.0

@@ -47,6 +47,7 @@ from .const import (
     CONF_DAYS_AFTER,
     CONF_DAYS_BEFORE,
     CONF_DEFAULT_LIGHTS,
+    CONF_EASTER_OFFSET,
     CONF_END,
     CONF_END_DATE,
     CONF_INTERVAL,
@@ -124,6 +125,12 @@ COLORS_SELECTOR = ObjectSelector(
 DAYS_SELECTOR = NumberSelector(
     NumberSelectorConfig(
         min=0, max=60, step=1, unit_of_measurement="days", mode=NumberSelectorMode.BOX
+    )
+)
+
+EASTER_OFFSET_SELECTOR = NumberSelector(
+    NumberSelectorConfig(
+        min=-60, max=90, step=1, unit_of_measurement="days", mode=NumberSelectorMode.BOX
     )
 )
 
@@ -282,7 +289,12 @@ def _dates_schema(kind: str, values: dict[str, Any]) -> dict[Any, Any]:
             **days,
         }
     if kind == KIND_EASTER:
-        return days
+        return {
+            vol.Required(
+                CONF_EASTER_OFFSET, default=values.get(CONF_EASTER_OFFSET, 0)
+            ): EASTER_OFFSET_SELECTOR,
+            **days,
+        }
     if kind == KIND_ONCE:
         return {
             vol.Required(
@@ -415,7 +427,7 @@ def _normalise_holiday(
             errors[CONF_END_DATE] = "end_before_start"
     elif kind == KIND_CALENDAR:
         data[CONF_KEYWORD] = (data.get(CONF_KEYWORD) or "").strip()
-    for key in (CONF_DAYS_BEFORE, CONF_DAYS_AFTER):
+    for key in (CONF_DAYS_BEFORE, CONF_DAYS_AFTER, CONF_EASTER_OFFSET):
         if key in data:
             data[key] = int(data[key])
 

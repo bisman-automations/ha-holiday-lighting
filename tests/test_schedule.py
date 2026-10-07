@@ -203,3 +203,76 @@ def test_effects() -> None:
         "G": ["a", "c"],
         "R": ["b"],
     }
+
+
+@pytest.mark.parametrize(
+    ("preset", "year", "window"),
+    [
+        ("fathers_day", 2027, ("2027-06-18", "2027-06-20")),  # 3rd Sunday of June
+        ("fathers_day", 2028, ("2028-06-16", "2028-06-18")),
+        ("presidents_day", 2027, ("2027-02-15", "2027-02-15")),  # 3rd Monday of Feb
+        ("kwanzaa", 2026, ("2026-12-26", "2027-01-01")),
+    ],
+)
+def test_new_preset_dates(preset: str, year: int, window: tuple[str, str]) -> None:
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    start, end = holiday_windows(PRESETS[preset], year)[0]
+    assert (start.isoformat(), end.isoformat()) == window
+
+
+def test_new_presets_do_not_steal_neighbors() -> None:
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    holidays = [{**preset, "id": key} for key, preset in PRESETS.items()]
+    expected = {
+        "2027-02-14": "valentines",
+        "2027-02-15": "presidents_day",
+        "2027-06-12": "sacred_heart_month",
+        "2027-06-20": "fathers_day",
+        "2027-12-25": "christmas",
+        "2027-12-31": "new_years",
+    }
+    for day, key in expected.items():
+        assert active_holiday(holidays, date.fromisoformat(day))["id"] == key
+
+
+@pytest.mark.parametrize(
+    ("preset", "expected"),
+    [
+        # Easter 2027 is March 28; 2028 is April 16.
+        ("divine_mercy", {2027: "2027-04-04", 2028: "2028-04-23"}),
+        ("pentecost", {2027: "2027-05-16", 2028: "2028-06-04"}),
+        ("corpus_christi", {2027: "2027-05-30", 2028: "2028-06-18"}),
+        ("sacred_heart_feast", {2027: "2027-06-04", 2028: "2028-06-23"}),
+        ("immaculate_heart", {2027: "2027-06-05", 2028: "2028-06-24"}),
+    ],
+)
+def test_easter_relative_feasts(preset: str, expected: dict[int, str]) -> None:
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    for year, day in expected.items():
+        assert holiday_windows(PRESETS[preset], year) == [
+            (date.fromisoformat(day), date.fromisoformat(day))
+        ]
+
+
+def test_easter_offset_defaults_to_easter_sunday() -> None:
+    """Easter holidays saved before the offset existed are unchanged."""
+    saved = {"kind": "easter", "days_before": 7, "days_after": 0}
+    assert holiday_windows(saved, 2027) == [(date(2027, 3, 21), date(2027, 3, 28))]
+
+
+def test_feast_days_win_over_seasons() -> None:
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    holidays = [{**preset, "id": key} for key, preset in PRESETS.items()]
+    expected = {
+        "2027-06-04": "sacred_heart_feast",
+        "2027-06-10": "sacred_heart_month",
+        "2027-12-08": "immaculate_conception",
+        "2027-12-12": "guadalupe",
+        "2027-12-25": "christmas",
+    }
+    for day, key in expected.items():
+        assert active_holiday(holidays, date.fromisoformat(day))["id"] == key
