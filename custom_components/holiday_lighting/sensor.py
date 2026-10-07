@@ -61,6 +61,7 @@ class StatusSensor(HolidayLightingEntity, SensorEntity):
             "dark": controller.is_dark(),
             "lights_on_at": controller.on_at,
             "hard_off_tonight": controller.hard_off_tonight(),
+            "manually_changed": sorted(controller.night.overridden),
         }
 
 
@@ -79,6 +80,7 @@ class ActiveHolidaySensor(HolidayLightingEntity, SensorEntity):
         attrs: dict[str, Any] = {}
         if running := self.controller.running:
             attrs["colors"] = running.colors
+            attrs["color_names"] = running.color_names
             attrs["lights"] = running.lights
             attrs["mode"] = running.mode
         if upcoming := self.controller.upcoming():

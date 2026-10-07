@@ -22,7 +22,9 @@
           "lux_sensor": "Illuminance sensor",
           "lux_threshold": "Illuminance threshold",
           "on_duration": "Stay on for",
-          "off_time": "Hard off time"
+          "off_time": "Hard off time",
+          "weekend_off_time": "Weekend hard off time",
+          "respect_manual": "Respect manual changes"
         },
         "data_description": {
           "use_schedule": "When off, the lights run whenever the Enabled switch is on.",
@@ -31,7 +33,9 @@
           "lux_sensor": "Required when dark detection uses illuminance.",
           "lux_threshold": "Dark when the sensor reads below this.",
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
-          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit."
+          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
+          "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
+          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night."
         }
       }
     },
@@ -55,7 +59,9 @@
           "lux_sensor": "Illuminance sensor",
           "lux_threshold": "Illuminance threshold",
           "on_duration": "Stay on for",
-          "off_time": "Hard off time"
+          "off_time": "Hard off time",
+          "weekend_off_time": "Weekend hard off time",
+          "respect_manual": "Respect manual changes"
         },
         "data_description": {
           "default_lights": "Used for new holidays and for holidays with no lights selected. Drag to reorder.",
@@ -65,7 +71,9 @@
           "lux_sensor": "Required when dark detection uses illuminance.",
           "lux_threshold": "Dark when the sensor reads below this.",
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
-          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit."
+          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
+          "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
+          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night."
         }
       }
     },
@@ -98,7 +106,16 @@
             "mode": "Mode",
             "interval": "Rotation interval",
             "brightness": "Brightness",
-            "transition": "Transition"
+            "transition": "Transition",
+            "week": "Week",
+            "weekday": "Day",
+            "month": "Month",
+            "days_before": "Start days before",
+            "days_after": "End days after",
+            "start_date": "Start date",
+            "end_date": "End date",
+            "calendar": "Calendar",
+            "keyword": "Event keyword"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -106,7 +123,28 @@
             "colors": "Add colors with the picker. Drag to reorder; they rotate in this order. The name is optional and is just a label.",
             "lights": "Drag to reorder: colors move down this list each step. Empty uses the default lights.",
             "interval": "Seconds between rotation steps.",
-            "brightness": "Leave empty to keep each light's current brightness."
+            "brightness": "Leave empty to keep each light's current brightness.",
+            "days_before": "Turn on this many days before the date.",
+            "days_after": "Keep going this many days after the date.",
+            "keyword": "Only events whose title contains this. Leave empty for every event.",
+            "calendar": "The theme shows on any evening with a matching event.",
+            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors."
+          },
+          "sections": {
+            "schedule_override": {
+              "name": "Schedule for this holiday",
+              "description": "Leave empty to use the main schedule.",
+              "data": {
+                "all_night": "Stay on all night",
+                "on_duration": "Stay on for",
+                "off_time": "Hard off time"
+              },
+              "data_description": {
+                "all_night": "Ignore the duration and off time; turn off when it is light again.",
+                "on_duration": "Overrides the main duration for this holiday.",
+                "off_time": "Overrides the main and weekend off times for this holiday. A time before noon means after midnight."
+              }
+            }
           }
         },
         "reconfigure": {
@@ -120,7 +158,16 @@
             "mode": "Mode",
             "interval": "Rotation interval",
             "brightness": "Brightness",
-            "transition": "Transition"
+            "transition": "Transition",
+            "week": "Week",
+            "weekday": "Day",
+            "month": "Month",
+            "days_before": "Start days before",
+            "days_after": "End days after",
+            "start_date": "Start date",
+            "end_date": "End date",
+            "calendar": "Calendar",
+            "keyword": "Event keyword"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -128,7 +175,39 @@
             "colors": "Add colors with the picker. Drag to reorder; they rotate in this order. The name is optional and is just a label.",
             "lights": "Drag to reorder: colors move down this list each step. Empty uses the default lights.",
             "interval": "Seconds between rotation steps.",
-            "brightness": "Leave empty to keep each light's current brightness."
+            "brightness": "Leave empty to keep each light's current brightness.",
+            "days_before": "Turn on this many days before the date.",
+            "days_after": "Keep going this many days after the date.",
+            "keyword": "Only events whose title contains this. Leave empty for every event.",
+            "calendar": "The theme shows on any evening with a matching event.",
+            "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors."
+          },
+          "sections": {
+            "schedule_override": {
+              "name": "Schedule for this holiday",
+              "description": "Leave empty to use the main schedule.",
+              "data": {
+                "all_night": "Stay on all night",
+                "on_duration": "Stay on for",
+                "off_time": "Hard off time"
+              },
+              "data_description": {
+                "all_night": "Ignore the duration and off time; turn off when it is light again.",
+                "on_duration": "Overrides the main duration for this holiday.",
+                "off_time": "Overrides the main and weekend off times for this holiday. A time before noon means after midnight."
+              }
+            }
+          }
+        },
+        "kind": {
+          "title": "Holiday dates",
+          "description": "How should this holiday's dates be decided?",
+          "menu_options": {
+            "yearly": "Same dates every year",
+            "nth_weekday": "A weekday rule, e.g. 4th Thursday of November",
+            "easter": "Around Easter",
+            "once": "A one-time event",
+            "calendar": "Whenever a calendar has an event"
           }
         }
       },
@@ -137,7 +216,8 @@
         "name_exists": "A holiday with this name already exists.",
         "invalid_date": "Use MM-DD, e.g. 12-25.",
         "invalid_colors": "Use hex codes (#FF0000) or color names (red), separated by commas.",
-        "colors_required": "Add at least one color."
+        "colors_required": "Add at least one color.",
+        "end_before_start": "The end date must be on or after the start date."
       },
       "abort": {
         "reconfigure_successful": "Holiday updated."
@@ -155,7 +235,11 @@
         "independence_day": "Independence Day",
         "halloween": "Halloween",
         "thanksgiving": "Thanksgiving",
-        "christmas": "Christmas"
+        "christmas": "Christmas",
+        "mothers_day": "Mother's Day",
+        "memorial_day": "Memorial Day",
+        "labor_day": "Labor Day",
+        "veterans_day": "Veterans Day"
       }
     },
     "dark_source": {
@@ -167,14 +251,53 @@
     },
     "mode": {
       "options": {
-        "rotate": "Rotate colors",
-        "static": "Static colors"
+        "rotate": "Chase",
+        "static": "Static",
+        "cycle": "Whole-house cycle",
+        "fade": "Whole-house fade",
+        "twinkle": "Twinkle (random)"
       }
     },
     "color_list": {
       "fields": {
         "name": "Name",
         "color": "Color"
+      }
+    },
+    "week": {
+      "options": {
+        "1": "1st",
+        "2": "2nd",
+        "3": "3rd",
+        "4": "4th",
+        "last": "Last"
+      }
+    },
+    "weekday": {
+      "options": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
+    },
+    "month": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
       }
     }
   },
@@ -203,6 +326,9 @@
           },
           "hard_off_tonight": {
             "name": "Hard off tonight"
+          },
+          "manually_changed": {
+            "name": "Manually changed"
           }
         }
       },
@@ -245,6 +371,16 @@
     "advance": {
       "name": "Advance",
       "description": "Move the color rotation forward one step."
+    }
+  },
+  "issues": {
+    "no_color": {
+      "title": "Some {holiday} lights can't show colors",
+      "description": "These lights don't support color, so they won't show the {holiday} colors: {lights}.\n\nRemove them from the holiday, or ignore this if that's intended."
+    },
+    "lights_unavailable": {
+      "title": "Some {holiday} lights are unavailable",
+      "description": "These lights are unavailable, so they aren't part of the {holiday} show: {lights}.\n\nThis clears itself when they come back."
     }
   }
 }
