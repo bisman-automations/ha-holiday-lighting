@@ -1,0 +1,61 @@
+# Holiday Lighting dashboard card.
+# In a dashboard: Edit → Add card → Manual, then paste this.
+# Uses only built-in cards. Entity IDs assume the default names.
+type: vertical-stack
+cards:
+  - type: tile
+    entity: switch.holiday_lighting_enabled
+    name: Holiday Lighting
+    vertical: false
+    features_position: bottom
+  - type: markdown
+    content: >-
+      {% set holiday = states('sensor.holiday_lighting_active_holiday') %}
+      {% set status = states('sensor.holiday_lighting_status') %}
+      {% set off_at = states('sensor.holiday_lighting_lights_off_at') %}
+      {% if holiday not in ['unknown', 'unavailable', 'none', ''] %}
+      **{{ holiday }}**: {{ state_attr('sensor.holiday_lighting_active_holiday', 'color_names') | join(', ') }}
+      {% else %}
+      **{{ state_translated('sensor.holiday_lighting_status') }}**
+      {% endif %}
+      {% if status == 'on' and off_at not in ['unknown', 'unavailable'] %}
+      <br>Off at {{ as_timestamp(off_at) | timestamp_custom('%-I:%M %p') }}
+      {% endif %}
+      {% set next = state_attr('sensor.holiday_lighting_active_holiday', 'next_holiday') %}
+      {% if next %}
+      <br>Next: {{ next }}, {{ strptime(state_attr('sensor.holiday_lighting_active_holiday', 'next_holiday_start'), '%Y-%m-%d').strftime('%b %-d') }}
+      {% endif %}
+  - type: tile
+    entity: select.holiday_lighting_theme
+    features:
+      - type: select-options
+    features_position: bottom
+  - type: horizontal-stack
+    cards:
+      - type: button
+        entity: button.holiday_lighting_turn_on_now
+        name: "On"
+        icon_height: 32px
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.holiday_lighting_turn_on_now
+      - type: button
+        entity: button.holiday_lighting_next_colors
+        name: Next
+        icon_height: 32px
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.holiday_lighting_next_colors
+      - type: button
+        entity: button.holiday_lighting_turn_off_for_tonight
+        name: "Off"
+        icon_height: 32px
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.holiday_lighting_turn_off_for_tonight

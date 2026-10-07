@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-07
+
+### Added
+
+- **Relative to Advent** date type: a number of days from the First Sunday of Advent, or the whole season through Christmas Eve. Calculated every year.
+- **Liturgical presets:** Advent, Gaudete Sunday, Christ the King, Mardi Gras, Palm Sunday, Ascension (Sunday), and Trinity Sunday.
+- **Lights without color now take part.** Color-temperature lights show a matching warm, neutral, or cool white, and dimmable white lights show a brightness for each color. The Active holiday sensor lists them under "Lights shown in white."
+- **Buttons:** Turn on now, Next colors, and Turn off for tonight.
+- **Dashboard card** in `examples/dashboard-card.yaml`.
+
+### Changed
+
+- When holidays overlap, the one that ends first wins, then the shorter one. Before, only length counted, so a long Advent (up to 28 days) could lose to the Christmas preset on December 1. Every other overlap resolves the same way, except that on December 26 Christmas now beats Kwanzaa.
+- Changing a color-temperature light by hand is now recognized as a manual change.
+
+### Removed
+
+- The "lights can't show colors" repair, since those lights are now handled. Existing ones clear on their own.
+
 ## [1.4.1] - 2026-10-07
 
 ### Changed
@@ -100,7 +119,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.0...v1.3.1

@@ -495,6 +495,7 @@ async def test_add_custom_kinds(hass: HomeAssistant) -> None:
             "yearly",
             "nth_weekday",
             "easter",
+            "advent",
             "once",
             "calendar",
         ]
@@ -816,11 +817,8 @@ async def test_repairs(hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz) 
     with patch(DARK, return_value=True):
         await _start(hass, entry)
         sub_id = next(iter(entry.subentries))
-        issue = registry.async_get_issue(DOMAIN, f"no_color_{sub_id}")
-        assert issue.translation_placeholders == {
-            "holiday": "Christmas",
-            "lights": "light.porch",
-        }
+        # White-only lights are handled now, so there is no color issue.
+        assert registry.async_get_issue(DOMAIN, f"no_color_{sub_id}") is None
         # Unavailable needs two checks in a row.
         assert registry.async_get_issue(DOMAIN, f"lights_unavailable_{sub_id}") is None
         await _tick(hass, freezer, datetime(2026, 12, 5, 18, 1, 30, tzinfo=tz))
@@ -829,6 +827,92 @@ async def test_repairs(hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz) 
         hass.states.async_set("light.garage", "on", {"supported_color_modes": ["hs"]})
         await _tick(hass, freezer, datetime(2026, 12, 5, 18, 3, tzinfo=tz))
         assert registry.async_get_issue(DOMAIN, f"lights_unavailable_{sub_id}") is None
+
+
+async def test_old_no_color_issue_is_cleared(hass: HomeAssistant) -> None:
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
+    )
+    entry.add_to_hass(hass)
+    sub_id = next(iter(entry.subentries))
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        f"no_color_{sub_id}",
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="no_color",
+    )
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"no_color_{sub_id}") is None
+
+
+async def test_white_and_color_temp_lights(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Each kind of light gets something it can show, and isn't flagged as manual."""
+    freezer.move_to(datetime(2026, 12, 5, 18, 0, tzinfo=tz))
+    hass.states.async_set("light.porch", "off", {"supported_color_modes": ["hs"]})
+    hass.states.async_set(
+        "light.tree",
+        "off",
+        {
+            "supported_color_modes": ["color_temp"],
+            "min_color_temp_kelvin": 2700,
+            "max_color_temp_kelvin": 6500,
+        },
+    )
+    hass.states.async_set(
+        "light.garage", "off", {"supported_color_modes": ["brightness"]}
+    )
+    turn_on = async_mock_service(hass, "light", "turn_on")
+    entry = _entry_with(
+        _holiday(
+            "Christmas",
+            kind="yearly",
+            start="12-01",
+            end="12-26",
+            colors=["#FF0000", "#0000FF", "#FFFFFF"],
+            lights=LIGHTS,
+        ),
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+    sent = {c.data["entity_id"][0]: c.data for c in turn_on}
+    # Chase step 0: porch red, tree blue, garage white.
+    assert sent["light.porch"]["rgb_color"] == [255, 0, 0]
+    assert sent["light.tree"]["color_temp_kelvin"] == 6500  # blue -> cool white
+    assert "rgb_color" not in sent["light.tree"]
+    assert sent["light.garage"]["brightness_pct"] == 100  # white -> full
+    assert "rgb_color" not in sent["light.garage"]
+    attrs = hass.states.get("sensor.holiday_lighting_active_holiday").attributes
+    assert attrs["white_lights"] == ["light.tree", "light.garage"]
+
+    # The tree reports its color temperature (and an rgb_color derived from it,
+    # far from blue): that is not a manual change.
+    freezer.tick(timedelta(seconds=15))
+    hass.states.async_set(
+        "light.tree",
+        "on",
+        {
+            "supported_color_modes": ["color_temp"],
+            "color_temp_kelvin": 6500,
+            "rgb_color": (255, 249, 253),
+        },
+        context=Context(),
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert entry.runtime_data.night.overridden == set()
+    # Someone sets it to warm white by hand: that is.
+    hass.states.async_set(
+        "light.tree",
+        "on",
+        {"supported_color_modes": ["color_temp"], "color_temp_kelvin": 2700},
+        context=Context(),
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert entry.runtime_data.night.overridden == {"light.tree"}
 
 
 async def test_diagnostics(
@@ -980,6 +1064,7 @@ def test_preset_form_submits_as_shown(preset: str) -> None:
         ("nth_weekday", ["name"]),
         ("easter", ["name"]),
         ("once", ["name", "start_date", "end_date"]),
+        ("advent", ["name"]),
         ("calendar", ["name", "calendar"]),
     ],
 )
@@ -1065,3 +1150,73 @@ async def test_add_holiday_hides_presets_already_added(hass: HomeAssistant) -> N
     hass.config_entries.async_remove_subentry(entry, sub.subentry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
     assert "halloween" in await _preset_options(hass, entry)
+
+
+async def test_buttons_and_dashboard_card(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """The example card's entities exist, its template renders, buttons work."""
+    import re
+    from pathlib import Path
+
+    import yaml
+    from homeassistant.helpers.template import Template
+
+    freezer.move_to(datetime(2026, 12, 5, 13, 0, tzinfo=tz))  # daytime
+    turn_on = async_mock_service(hass, "light", "turn_on")
+    turn_off = async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday(
+            "Christmas",
+            kind="yearly",
+            start="12-01",
+            end="12-26",
+            color_names=["Red", "Green", "White"],
+        ),
+        _holiday("New Year's", kind="yearly", start="12-31", end="01-01"),
+    )
+    with patch(DARK, return_value=False):
+        await _start(hass, entry)
+
+        card_file = Path(__file__).parent.parent / "examples" / "dashboard-card.yaml"
+        card = card_file.read_text()
+        yaml.safe_load(card)
+        for entity_id in set(
+            re.findall(r"\b(?:switch|select|sensor|button)\.holiday_lighting_\w+", card)
+        ):
+            assert hass.states.get(entity_id) is not None, entity_id
+
+        markdown = next(
+            c for c in yaml.safe_load(card)["cards"] if c["type"] == "markdown"
+        )
+        rendered = Template(markdown["content"], hass).async_render()
+        assert "Next: New Year's, Dec 31" in rendered
+
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_turn_on_now"},
+            blocking=True,
+        )
+        assert _state(hass, "status") == "on"
+        rendered = Template(markdown["content"], hass).async_render()
+        assert "**Christmas**: Red, Green, White" in rendered
+        assert "Off at" in rendered
+
+        turn_on.clear()
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_next_colors"},
+            blocking=True,
+        )
+        assert turn_on
+
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_turn_off_for_tonight"},
+            blocking=True,
+        )
+        assert turn_off
+        assert _state(hass, "status") == "done_for_tonight"

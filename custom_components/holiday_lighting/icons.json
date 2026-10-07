@@ -1,7 +1,9 @@
 {
   "entity": {
     "select": {
-      "theme": { "default": "mdi:palette" }
+      "theme": {
+        "default": "mdi:palette"
+      }
     },
     "sensor": {
       "status": {
@@ -13,16 +15,39 @@
           "no_holiday": "mdi:calendar-blank"
         }
       },
-      "active_holiday": { "default": "mdi:party-popper" },
-      "lights_off_at": { "default": "mdi:timer-off-outline" }
+      "active_holiday": {
+        "default": "mdi:party-popper"
+      },
+      "lights_off_at": {
+        "default": "mdi:timer-off-outline"
+      }
     },
     "switch": {
-      "enabled": { "default": "mdi:string-lights" }
+      "enabled": {
+        "default": "mdi:string-lights"
+      }
+    },
+    "button": {
+      "start": {
+        "default": "mdi:play"
+      },
+      "stop": {
+        "default": "mdi:stop"
+      },
+      "next": {
+        "default": "mdi:skip-next"
+      }
     }
   },
   "services": {
-    "start": { "service": "mdi:play" },
-    "stop": { "service": "mdi:stop" },
-    "advance": { "service": "mdi:skip-next" }
+    "start": {
+      "service": "mdi:play"
+    },
+    "stop": {
+      "service": "mdi:stop"
+    },
+    "advance": {
+      "service": "mdi:skip-next"
+    }
   }
 }

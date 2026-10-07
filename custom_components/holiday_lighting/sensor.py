@@ -18,6 +18,7 @@ from .const import (
     STATUS_WAITING,
 )
 from .entity import HolidayLightingEntity
+from .schedule import LIGHT_COLOR
 
 
 async def async_setup_entry(
@@ -84,6 +85,11 @@ class ActiveHolidaySensor(HolidayLightingEntity, SensorEntity):
             attrs["color_names"] = running.color_names
             attrs["lights"] = running.lights
             attrs["mode"] = running.mode
+            attrs["white_lights"] = [
+                entity_id
+                for entity_id in running.lights
+                if self.controller.light_kind(entity_id) != LIGHT_COLOR
+            ]
         if upcoming := self.controller.upcoming():
             attrs["next_holiday"] = upcoming[0].name
             attrs["next_holiday_start"] = upcoming[1].isoformat()

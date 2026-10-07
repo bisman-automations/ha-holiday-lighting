@@ -271,8 +271,116 @@ def test_feast_days_win_over_seasons() -> None:
         "2027-06-04": "sacred_heart_feast",
         "2027-06-10": "sacred_heart_month",
         "2027-12-08": "immaculate_conception",
-        "2027-12-12": "guadalupe",
+        "2026-12-12": "guadalupe",  # Saturday
+        "2027-12-12": "gaudete_sunday",  # Advent Sunday outranks it
         "2027-12-25": "christmas",
     }
     for day, key in expected.items():
         assert active_holiday(holidays, date.fromisoformat(day))["id"] == key
+
+
+@pytest.mark.parametrize(
+    ("year", "first_sunday"),
+    [
+        (2024, "2024-12-01"),
+        (2026, "2026-11-29"),
+        (2027, "2027-11-28"),
+        (2028, "2028-12-03"),
+    ],
+)
+def test_first_sunday_of_advent(year: int, first_sunday: str) -> None:
+    from custom_components.holiday_lighting.schedule import first_sunday_of_advent
+
+    assert first_sunday_of_advent(year) == date.fromisoformat(first_sunday)
+
+
+@pytest.mark.parametrize(
+    ("preset", "year", "window"),
+    [
+        ("advent", 2027, ("2027-11-28", "2027-12-24")),  # longer than Christmas preset
+        ("advent", 2028, ("2028-12-03", "2028-12-24")),
+        ("christ_the_king", 2026, ("2026-11-22", "2026-11-22")),
+        ("gaudete_sunday", 2026, ("2026-12-13", "2026-12-13")),
+        ("mardi_gras", 2026, ("2026-02-17", "2026-02-17")),
+        ("mardi_gras", 2028, ("2028-02-29", "2028-02-29")),
+        ("palm_sunday", 2027, ("2027-03-21", "2027-03-21")),
+        ("ascension", 2026, ("2026-05-17", "2026-05-17")),
+        ("trinity_sunday", 2026, ("2026-05-31", "2026-05-31")),
+    ],
+)
+def test_liturgical_preset_dates(
+    preset: str, year: int, window: tuple[str, str]
+) -> None:
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    start, end = holiday_windows(PRESETS[preset], year)[0]
+    assert (start.isoformat(), end.isoformat()) == window
+
+
+def test_advent_runs_into_christmas() -> None:
+    """The season that ends first wins, even when it is the longer one."""
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    holidays = [{**PRESETS[k], "id": k} for k in ("advent", "christmas", "kwanzaa")]
+    expected = {
+        "2027-11-28": "advent",
+        "2027-12-01": "advent",  # Advent (27 days) still beats Christmas (26)
+        "2027-12-24": "advent",
+        "2027-12-25": "christmas",
+        "2027-12-26": "christmas",  # Christmas ends first, before Kwanzaa
+        "2027-12-27": "kwanzaa",
+    }
+    for day, key in expected.items():
+        assert active_holiday(holidays, date.fromisoformat(day))["id"] == key
+
+
+def test_advent_offset_and_days_after() -> None:
+    custom = {"kind": "advent", "advent_offset": 7, "days_before": 1, "days_after": 2}
+    assert holiday_windows(custom, 2026) == [(date(2026, 12, 5), date(2026, 12, 8))]
+
+
+@pytest.mark.parametrize(
+    ("modes", "kind"),
+    [
+        (None, "color"),
+        (["hs"], "color"),
+        (["color_temp", "xy"], "color"),
+        (["color_temp"], "color_temp"),
+        (["brightness"], "dimmable"),
+        (["onoff"], "onoff"),
+    ],
+)
+def test_light_kind(modes, kind) -> None:
+    from custom_components.holiday_lighting.schedule import light_kind
+
+    assert light_kind(modes) == kind
+
+
+@pytest.mark.parametrize(
+    ("rgb", "kelvin"),
+    [
+        ((255, 0, 0), 2200),  # red
+        ((255, 102, 0), 2200),  # orange
+        ((255, 199, 44), 2200),  # gold
+        ((255, 90, 140), 2200),  # rose
+        ((255, 255, 255), 4000),  # white
+        ((0, 255, 0), 4000),  # green
+        ((0, 0, 255), 6500),  # blue
+        ((123, 44, 191), 6500),  # purple
+    ],
+)
+def test_color_to_kelvin(rgb, kelvin) -> None:
+    from custom_components.holiday_lighting.schedule import color_to_kelvin
+
+    assert color_to_kelvin(rgb) == kelvin
+
+
+def test_color_to_brightness() -> None:
+    from custom_components.holiday_lighting.schedule import color_to_brightness_pct
+
+    white, green, red, blue = (
+        color_to_brightness_pct(c)
+        for c in ((255, 255, 255), (0, 255, 0), (255, 0, 0), (0, 0, 255))
+    )
+    assert white == 100 and white > green > red > blue >= 40
+    assert color_to_brightness_pct((255, 255, 255), 50) == 50

@@ -120,7 +120,9 @@
             "end_date": "End date",
             "calendar": "Calendar",
             "keyword": "Event keyword",
-            "easter_offset": "Days from Easter"
+            "easter_offset": "Days from Easter",
+            "advent_offset": "Days from the First Sunday of Advent",
+            "through_christmas_eve": "Through Christmas Eve"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -134,7 +136,9 @@
             "keyword": "Only events whose title contains this. Leave empty for every event.",
             "calendar": "The theme shows on any evening with a matching event.",
             "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors.",
-            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost."
+            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost.",
+            "advent_offset": "0 is the First Sunday of Advent. Negative is before it, e.g. -7 for Christ the King; 14 is Gaudete Sunday.",
+            "through_christmas_eve": "Keep going until December 24 instead of using days after."
           },
           "sections": {
             "schedule_override": {
@@ -174,7 +178,9 @@
             "end_date": "End date",
             "calendar": "Calendar",
             "keyword": "Event keyword",
-            "easter_offset": "Days from Easter"
+            "easter_offset": "Days from Easter",
+            "advent_offset": "Days from the First Sunday of Advent",
+            "through_christmas_eve": "Through Christmas Eve"
           },
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
@@ -188,7 +194,9 @@
             "keyword": "Only events whose title contains this. Leave empty for every event.",
             "calendar": "The theme shows on any evening with a matching event.",
             "mode": "Chase moves colors down the lights; Cycle and Fade change every light together; Twinkle picks random colors.",
-            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost."
+            "easter_offset": "0 is Easter Sunday. Negative is before Easter, e.g. -46 for Ash Wednesday; positive is after, e.g. 49 for Pentecost.",
+            "advent_offset": "0 is the First Sunday of Advent. Negative is before it, e.g. -7 for Christ the King; 14 is Gaudete Sunday.",
+            "through_christmas_eve": "Keep going until December 24 instead of using days after."
           },
           "sections": {
             "schedule_override": {
@@ -214,6 +222,7 @@
             "yearly": "Same dates every year",
             "nth_weekday": "A weekday rule, e.g. 4th Thursday of November",
             "easter": "Relative to Easter, e.g. Pentecost",
+            "advent": "Relative to Advent, e.g. Christ the King",
             "once": "A one-time event",
             "calendar": "Whenever a calendar has an event"
           }
@@ -269,7 +278,14 @@
         "all_saints": "All Saints' Day",
         "all_souls": "All Souls' Day",
         "immaculate_conception": "Immaculate Conception",
-        "guadalupe": "Our Lady of Guadalupe"
+        "guadalupe": "Our Lady of Guadalupe",
+        "mardi_gras": "Mardi Gras",
+        "palm_sunday": "Palm Sunday",
+        "ascension": "Ascension",
+        "trinity_sunday": "Trinity Sunday",
+        "christ_the_king": "Christ the King",
+        "advent": "Advent",
+        "gaudete_sunday": "Gaudete Sunday"
       }
     },
     "dark_source": {
@@ -366,7 +382,12 @@
         }
       },
       "active_holiday": {
-        "name": "Active holiday"
+        "name": "Active holiday",
+        "state_attributes": {
+          "white_lights": {
+            "name": "Lights shown in white"
+          }
+        }
       },
       "lights_off_at": {
         "name": "Lights off at"
@@ -375,6 +396,17 @@
     "switch": {
       "enabled": {
         "name": "Enabled"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Turn on now"
+      },
+      "stop": {
+        "name": "Turn off for tonight"
+      },
+      "next": {
+        "name": "Next colors"
       }
     }
   },
@@ -407,10 +439,6 @@
     }
   },
   "issues": {
-    "no_color": {
-      "title": "Some {holiday} lights can't show colors",
-      "description": "These lights don't support color, so they won't show the {holiday} colors: {lights}.\n\nRemove them from the holiday, or ignore this if that's intended."
-    },
     "lights_unavailable": {
       "title": "Some {holiday} lights are unavailable",
       "description": "These lights are unavailable, so they aren't part of the {holiday} show: {lights}.\n\nThis clears itself when they come back."

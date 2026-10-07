@@ -95,10 +95,16 @@ from .const import (
     THEME_AUTO,
 )
 from .schedule import (
+    LIGHT_COLOR,
+    LIGHT_DIMMABLE,
+    LIGHT_TEMP,
     active_holiday,
     can_start,
+    color_to_brightness_pct,
+    color_to_kelvin,
     effect_assignments,
     hard_off_at,
+    light_kind,
     lights_off_deadline,
     night_of,
     upcoming_holiday,
@@ -113,16 +119,9 @@ CALENDAR_REFRESH = timedelta(minutes=15)
 MANUAL_GRACE = timedelta(seconds=10)
 # Euclidean RGB distance beyond which a reported color is "different".
 MANUAL_COLOR_DISTANCE = 80
+MANUAL_KELVIN_DISTANCE = 500
 # Evaluations a light must stay unavailable before a repair is raised.
 UNAVAILABLE_STRIKES = 2
-
-_COLOR_MODES = {
-    ColorMode.HS,
-    ColorMode.RGB,
-    ColorMode.RGBW,
-    ColorMode.RGBWW,
-    ColorMode.XY,
-}
 
 _COLOR_ATTRS_BY_MODE: dict[str, str] = {
     ColorMode.COLOR_TEMP: ATTR_COLOR_TEMP_KELVIN,
@@ -270,7 +269,7 @@ class HolidayLightingController:
         self._calendar_active: set[str] = set()
         self._calendar_checked: tuple[date, datetime] | None = None
         self._our_contexts: deque[str] = deque(maxlen=64)
-        self._commanded: dict[str, tuple[list[int], datetime]] = {}
+        self._commanded: dict[str, tuple[tuple[str, Any] | None, datetime]] = {}
         self._unavailable_strikes: dict[str, int] = {}
 
     # --- lifecycle ---------------------------------------------------------
@@ -692,16 +691,22 @@ class HolidayLightingController:
             transition = float(max(1, holiday.interval))
         context = self._context()
         now = dt_util.utcnow()
-        calls = []
+        # Group lights that get the exact same command into one call.
+        commands: dict[tuple, list[str]] = {}
         for color, entity_ids in assignments.items():
             rgb = _hex_to_rgb(color)
-            data: dict[str, Any] = {ATTR_ENTITY_ID: entity_ids, ATTR_RGB_COLOR: rgb}
-            if holiday.brightness:
-                data[ATTR_BRIGHTNESS_PCT] = holiday.brightness
+            for entity_id in entity_ids:
+                key, expected = self._command_for(entity_id, rgb, holiday)
+                commands.setdefault(key, []).append(entity_id)
+                self._commanded[entity_id] = (expected, now)
+        calls = []
+        for key, entity_ids in commands.items():
+            data: dict[str, Any] = {
+                ATTR_ENTITY_ID: entity_ids,
+                **{k: list(v) if isinstance(v, tuple) else v for k, v in key},
+            }
             if transition:
                 data[ATTR_TRANSITION] = transition
-            for entity_id in entity_ids:
-                self._commanded[entity_id] = (rgb, now)
             calls.append(
                 self.hass.services.async_call(
                     LIGHT_DOMAIN, SERVICE_TURN_ON, data, blocking=True, context=context
@@ -710,6 +715,48 @@ class HolidayLightingController:
         for result in await asyncio.gather(*calls, return_exceptions=True):
             if isinstance(result, Exception):
                 _LOGGER.warning("Failed to set holiday color: %s", result)
+
+    def light_kind(self, entity_id: str) -> str:
+        """Whether a light shows color, color temperature, brightness or on/off."""
+        state = self.hass.states.get(entity_id)
+        modes = state.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if state else None
+        return light_kind(modes)
+
+    def _command_for(
+        self, entity_id: str, rgb: list[int], holiday: Holiday
+    ) -> tuple[tuple, tuple[str, Any] | None]:
+        """The turn_on data for one light, and what it should report back."""
+        kind = self.light_kind(entity_id)
+        data: dict[str, Any] = {}
+        expected: tuple[str, Any] | None
+        if kind == LIGHT_COLOR:
+            data[ATTR_RGB_COLOR] = rgb
+            expected = ("rgb", rgb)
+        elif kind == LIGHT_TEMP:
+            kelvin = color_to_kelvin(rgb)
+            state = self.hass.states.get(entity_id)
+            if state is not None:
+                low = state.attributes.get("min_color_temp_kelvin")
+                high = state.attributes.get("max_color_temp_kelvin")
+                if low:
+                    kelvin = max(kelvin, int(low))
+                if high:
+                    kelvin = min(kelvin, int(high))
+            data[ATTR_COLOR_TEMP_KELVIN] = kelvin
+            expected = ("kelvin", kelvin)
+        elif kind == LIGHT_DIMMABLE:
+            data[ATTR_BRIGHTNESS_PCT] = color_to_brightness_pct(
+                rgb, holiday.brightness or 100
+            )
+            expected = None
+        else:
+            expected = None
+        if holiday.brightness and kind in (LIGHT_COLOR, LIGHT_TEMP):
+            data[ATTR_BRIGHTNESS_PCT] = holiday.brightness
+        key = tuple(
+            sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in data.items())
+        )
+        return key, expected
 
     async def _async_end_night(self, now: datetime) -> None:
         """Schedule finished: turn lights off and wait for tomorrow."""
@@ -834,14 +881,22 @@ class HolidayLightingController:
             # We never turn lights off while running.
             manual = True
         elif (commanded := self._commanded.get(entity_id)) is not None:
-            rgb, sent_at = commanded
-            reported = new_state.attributes.get(ATTR_RGB_COLOR)
-            if (
-                reported is not None
-                and dt_util.utcnow() - sent_at > MANUAL_GRACE
-                and _color_distance(reported, rgb) > MANUAL_COLOR_DISTANCE
-            ):
-                manual = True
+            expected, sent_at = commanded
+            settled = dt_util.utcnow() - sent_at > MANUAL_GRACE
+            if settled and expected is not None:
+                what, value = expected
+                if what == "rgb":
+                    reported = new_state.attributes.get(ATTR_RGB_COLOR)
+                    manual = (
+                        reported is not None
+                        and _color_distance(reported, value) > MANUAL_COLOR_DISTANCE
+                    )
+                else:
+                    reported = new_state.attributes.get(ATTR_COLOR_TEMP_KELVIN)
+                    manual = (
+                        reported is not None
+                        and abs(int(reported) - value) > MANUAL_KELVIN_DISTANCE
+                    )
         if not manual:
             return
         _LOGGER.info(
@@ -861,7 +916,6 @@ class HolidayLightingController:
         holiday = self.running
         if holiday is None:
             return
-        no_color: list[str] = []
         unavailable: list[str] = []
         for entity_id in holiday.lights:
             state = self.hass.states.get(entity_id)
@@ -872,10 +926,6 @@ class HolidayLightingController:
                     unavailable.append(entity_id)
                 continue
             self._unavailable_strikes.pop(entity_id, None)
-            modes = state.attributes.get(ATTR_SUPPORTED_COLOR_MODES)
-            if modes is not None and not _COLOR_MODES.intersection(modes):
-                no_color.append(entity_id)
-        self._set_issue("no_color", holiday, no_color)
         self._set_issue("lights_unavailable", holiday, unavailable)
 
     def _set_issue(self, key: str, holiday: Holiday, lights: list[str]) -> None:
@@ -903,7 +953,9 @@ class HolidayLightingController:
             if domain != DOMAIN:
                 continue
             holiday_id = issue_id.rsplit("_", 1)[-1]
-            if holiday_id not in self.holidays:
+            # "no_color" issues came from 1.4 and earlier: those lights are
+            # handled now, so the issue no longer applies.
+            if holiday_id not in self.holidays or issue_id.startswith("no_color_"):
                 ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     # --- storage -----------------------------------------------------------

@@ -13,7 +13,8 @@ Home Assistant integration to create holiday color themes and rotate them across
 - **Effects.** Chase colors down your lights, cycle or fade the whole house through them together, twinkle randomly, or hold them static.
 - **Runs itself every night.** Lights come on when it gets dark (sun elevation, an illuminance sensor, or either), stay on for a set time, and turn off at a hard off time, whichever comes first. Holidays can set their own schedule, and Friday and Saturday can have a later off time.
 - **Plays nice.** If someone changes a light by hand, it's left alone for the rest of the night. Turning holiday lighting off restores each light's previous state.
-- **Tells you when something's wrong.** Repairs flag lights that can't show color or have gone unavailable.
+- **Works with any light.** Color bulbs show the colors; white and color-temperature bulbs follow along with matching brightness or warm and cool whites.
+- **Tells you when something's wrong.** Repairs flag lights that have gone unavailable.
 
 ## Installation
 
@@ -63,16 +64,19 @@ On the integration page, use **Add holiday** to add more holidays, or the ⋮ me
 | Same dates every year | `12-01` to `12-26`. Ranges can wrap the new year (`12-31` to `01-01`). |
 | Weekday rule | 4th Thursday of November, last Monday of May. Add days before and after. |
 | Relative to Easter | A number of days from Easter Sunday (e.g. 49 for Pentecost), plus days before and after. Calculated every year. |
+| Relative to Advent | A number of days from the First Sunday of Advent (e.g. -7 for Christ the King), plus days before and after, or through Christmas Eve. Calculated every year. |
 | One-time event | A start and end date with a year, e.g. a party or graduation. |
 | Calendar | Any night a calendar has an event, optionally only events whose title contains a keyword (e.g. `Bison`). |
 
 Presets: New Year's, Presidents' Day, Valentine's Day, St. Patrick's Day, Easter, Earth Day, Cinco de Mayo, Mother's Day, Memorial Day, Month of the Sacred Heart of Jesus, Father's Day, Juneteenth, Independence Day, Labor Day, Patriot Day, Halloween, Día de los Muertos, Veterans Day, Thanksgiving, Christmas, and Kwanzaa.
 
-Catholic feast days: Epiphany, St. Joseph, Annunciation, Divine Mercy Sunday, Pentecost, Corpus Christi (Sunday), Feast of the Sacred Heart, Immaculate Heart of Mary, Assumption of Mary, All Saints' Day, All Souls' Day, Immaculate Conception, and Our Lady of Guadalupe.
+Catholic feast days and seasons: Epiphany, Mardi Gras, St. Joseph, Annunciation, Palm Sunday, Divine Mercy Sunday, Ascension (Sunday), Pentecost, Trinity Sunday, Corpus Christi (Sunday), Feast of the Sacred Heart, Immaculate Heart of Mary, Assumption of Mary, All Saints' Day, All Souls' Day, Christ the King, Advent (through Christmas Eve), Gaudete Sunday, Immaculate Conception, and Our Lady of Guadalupe.
+
+Ascension and Corpus Christi use the Sunday observance. For Thursday, edit the holiday's days from Easter to 39 or 60.
 
 Moving holidays and feasts are calculated for each year.
 
-Holidays on the lunar or Hebrew calendars (Lunar New Year, Mardi Gras, Hanukkah, Diwali, Ramadan) aren't presets yet. Add them as a one-time event each year, or as a calendar holiday using a holiday calendar.
+Holidays on the lunar or Hebrew calendars (Lunar New Year, Hanukkah, Diwali, Ramadan) aren't presets yet. Add them as a one-time event each year, or as a calendar holiday using a holiday calendar.
 
 Every holiday also has:
 
@@ -86,7 +90,7 @@ Every holiday also has:
 | Transition | Seconds to fade between colors. |
 | Schedule for this holiday | Optional: stay on all night, or a different duration or hard off time (e.g. New Year's Eve until 1:00 AM). |
 
-**Which holiday shows?** A calendar holiday with a matching event tonight wins. Otherwise, when date ranges overlap, the shorter one wins, so a specific holiday beats a broad season. Calendars are checked for events between noon and midnight, every 15 minutes.
+**Which holiday shows?** A calendar holiday with a matching event tonight wins. Otherwise, when date ranges overlap, the one that ends first wins, then the shorter one. A feast day inside a season takes over for its day, and a season that runs into a holiday finishes first: Advent runs through Christmas Eve, then Christmas takes over. Calendars are checked for events between noon and midnight, every 15 minutes.
 
 ## Entities
 
@@ -97,6 +101,9 @@ Every holiday also has:
 | `sensor.holiday_lighting_status` | `disabled`, `waiting_for_dark`, `on`, `done_for_tonight`, `no_holiday`. Attributes include lights changed by hand tonight. |
 | `sensor.holiday_lighting_active_holiday` | Showing now, with colors, lights, and the next holiday as attributes. |
 | `sensor.holiday_lighting_lights_off_at` | When tonight's lights turn off. |
+| `button.holiday_lighting_turn_on_now` | Turn on now, ignoring darkness. Off rules still apply. |
+| `button.holiday_lighting_next_colors` | Move the colors forward one step. |
+| `button.holiday_lighting_turn_off_for_tonight` | Turn off and stay off for the rest of tonight. |
 
 ## Services
 
@@ -106,9 +113,26 @@ Every holiday also has:
 | `holiday_lighting.stop` | Turn off and stay off for the rest of tonight. |
 | `holiday_lighting.advance` | Move the rotation forward one step. |
 
+## Lights without color
+
+Every light in a holiday does something it can show:
+
+| Light | What it shows |
+| --- | --- |
+| Color | The holiday colors. |
+| Color temperature | A matching white: warm for reds, oranges, golds, and pinks; neutral for whites and greens; cool for blues and purples. |
+| Dimmable white | A brightness for each color (white brightest, blue dimmest), so chase and cycle still visibly move. |
+| On/off | On. |
+
+The Active holiday sensor lists these under **Lights shown in white**.
+
+## Dashboard card
+
+[`examples/dashboard-card.yaml`](examples/dashboard-card.yaml) is a ready-made card using only built-in cards: the Enabled switch, tonight's holiday and colors, when the lights turn off, the next holiday, a theme picker, and On / Next / Off buttons. In a dashboard, choose **Edit → Add card → Manual** and paste it in.
+
 ## Repairs and diagnostics
 
-- **Repairs** (Settings → System → Repairs) flag a holiday whose lights can't show color, or whose lights are unavailable when it runs. They clear on their own once fixed.
+- **Repairs** (Settings → System → Repairs) flag a holiday whose lights are unavailable when it runs. They clear on their own once fixed.
 - **Diagnostics**: download from the integration's ⋮ menu to attach to a bug report.
 
 ## Icon

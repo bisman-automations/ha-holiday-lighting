@@ -15,6 +15,7 @@ from typing import Any
 from homeassistant.util.color import color_name_to_rgb
 
 from .const import (
+    CONF_ADVENT_OFFSET,
     CONF_DAYS_AFTER,
     CONF_DAYS_BEFORE,
     CONF_EASTER_OFFSET,
@@ -24,8 +25,10 @@ from .const import (
     CONF_MONTH,
     CONF_START,
     CONF_START_DATE,
+    CONF_THROUGH_CHRISTMAS_EVE,
     CONF_WEEK,
     CONF_WEEKDAY,
+    KIND_ADVENT,
     KIND_EASTER,
     KIND_NTH_WEEKDAY,
     KIND_ONCE,
@@ -94,6 +97,13 @@ def easter_sunday(year: int) -> date:
     return date(year, month, day + 1)
 
 
+def first_sunday_of_advent(year: int) -> date:
+    """The fourth Sunday before Christmas (between Nov 27 and Dec 3)."""
+    christmas = date(year, 12, 25)
+    back = (christmas.weekday() - 6) % 7 or 7  # Sunday strictly before Christmas
+    return christmas - timedelta(days=back + 21)
+
+
 def nth_weekday(year: int, month: int, week: int, weekday: int) -> date:
     """The Nth weekday of a month (week -1 = last), e.g. 4th Thursday."""
     if week == -1:
@@ -135,6 +145,16 @@ def holiday_windows(holiday: Mapping[str, Any], year: int) -> list[tuple[date, d
         before = timedelta(days=int(holiday.get(CONF_DAYS_BEFORE, 0)))
         after = timedelta(days=int(holiday.get(CONF_DAYS_AFTER, 0)))
         return [(anchor - before, anchor + after)]
+    if kind == KIND_ADVENT:
+        anchor = first_sunday_of_advent(year) + timedelta(
+            days=int(holiday.get(CONF_ADVENT_OFFSET, 0))
+        )
+        start = anchor - timedelta(days=int(holiday.get(CONF_DAYS_BEFORE, 0)))
+        if holiday.get(CONF_THROUGH_CHRISTMAS_EVE):
+            end = date(year, 12, 24)
+        else:
+            end = anchor + timedelta(days=int(holiday.get(CONF_DAYS_AFTER, 0)))
+        return [(start, max(start, end))]
     if kind == KIND_ONCE:
         start = date.fromisoformat(holiday[CONF_START_DATE])
         end = date.fromisoformat(holiday[CONF_END_DATE])
@@ -171,21 +191,23 @@ def active_holiday(
     """Pick the holiday active today.
 
     Calendar holidays with an event tonight win. Otherwise, when windows
-    overlap, the shortest window wins, so a specific holiday (New Year's Eve)
-    beats a broad season (Winter).
+    overlap, the one that ends first wins, then the shorter one. So a feast
+    day inside a season (Immaculate Conception in December) takes over for
+    its day, and a season that runs into a holiday (Advent into Christmas)
+    finishes before the next one starts.
     """
     holidays = list(holidays)
     calendar_ids = set(calendar_active)
     for holiday in holidays:
         if holiday.get("id") in calendar_ids:
             return holiday
-    best: tuple[int, Mapping[str, Any]] | None = None
+    best: tuple[tuple[date, int], Mapping[str, Any]] | None = None
     for holiday in holidays:
         if (window := current_window(holiday, today)) is None:
             continue
-        length = (window[1] - window[0]).days + 1
-        if best is None or length < best[0]:
-            best = (length, holiday)
+        rank = (window[1], (window[1] - window[0]).days + 1)
+        if best is None or rank < best[0]:
+            best = (rank, holiday)
     return best[1] if best else None
 
 
@@ -334,3 +356,65 @@ def can_start(now: datetime, off_time: time | None) -> bool:
     if off_time is not None:
         return now < hard_off_at(night_of(now), off_time, now.tzinfo)
     return now.time() >= _NOON
+
+
+# --- Lights that can't show color -------------------------------------------
+
+LIGHT_COLOR = "color"
+LIGHT_TEMP = "color_temp"
+LIGHT_DIMMABLE = "dimmable"
+LIGHT_ONOFF = "onoff"
+
+_COLOR_MODE_NAMES = {"hs", "rgb", "rgbw", "rgbww", "xy"}
+_DIM_MODE_NAMES = {"brightness", "white"}
+
+WARM_KELVIN = 2200
+NEUTRAL_KELVIN = 4000
+COOL_KELVIN = 6500
+
+
+def light_kind(supported_color_modes: Iterable[str] | None) -> str:
+    """What a light can show, from its supported color modes.
+
+    Unknown (no attribute yet) is treated as full color, the old behavior.
+    """
+    if supported_color_modes is None:
+        return LIGHT_COLOR
+    modes = {str(mode) for mode in supported_color_modes}
+    if modes & _COLOR_MODE_NAMES:
+        return LIGHT_COLOR
+    if "color_temp" in modes:
+        return LIGHT_TEMP
+    if modes & _DIM_MODE_NAMES:
+        return LIGHT_DIMMABLE
+    return LIGHT_ONOFF
+
+
+def color_to_kelvin(rgb: Sequence[int]) -> int:
+    """The white that best stands in for a color on a color-temperature light.
+
+    Reds, oranges, golds and pinks -> warm; whites, greens and pastels ->
+    neutral; blues and purples -> cool.
+    """
+    import colorsys
+
+    hue, _light, saturation = colorsys.rgb_to_hls(*(c / 255 for c in rgb[:3]))
+    degrees = hue * 360
+    if saturation < 0.25 or (rgb[0] > 200 and rgb[1] > 200 and rgb[2] > 200):
+        return NEUTRAL_KELVIN
+    if degrees < 65 or degrees >= 320:
+        return WARM_KELVIN
+    if degrees < 170:
+        return NEUTRAL_KELVIN
+    return COOL_KELVIN
+
+
+def color_to_brightness_pct(rgb: Sequence[int], base_pct: int = 100) -> int:
+    """Brightness for a white-only light, from how bright the color looks.
+
+    Mapped to 40-100% of the base so a chase still visibly moves: white is
+    full brightness, green bright, red medium, blue dim.
+    """
+    red, green, blue = (c / 255 for c in rgb[:3])
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    return max(1, round(base_pct * (0.4 + 0.6 * luminance)))

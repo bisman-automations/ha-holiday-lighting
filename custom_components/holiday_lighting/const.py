@@ -27,9 +27,17 @@ CONF_KIND: Final = "kind"
 KIND_YEARLY: Final = "yearly"
 KIND_NTH_WEEKDAY: Final = "nth_weekday"
 KIND_EASTER: Final = "easter"
+KIND_ADVENT: Final = "advent"
 KIND_ONCE: Final = "once"
 KIND_CALENDAR: Final = "calendar"
-KINDS: Final = [KIND_YEARLY, KIND_NTH_WEEKDAY, KIND_EASTER, KIND_ONCE, KIND_CALENDAR]
+KINDS: Final = [
+    KIND_YEARLY,
+    KIND_NTH_WEEKDAY,
+    KIND_EASTER,
+    KIND_ADVENT,
+    KIND_ONCE,
+    KIND_CALENDAR,
+]
 
 CONF_MONTH: Final = "month"
 CONF_WEEK: Final = "week"  # 1-4, or -1 for the last
@@ -37,6 +45,8 @@ CONF_WEEKDAY: Final = "weekday"  # 0 = Monday
 CONF_DAYS_BEFORE: Final = "days_before"
 CONF_DAYS_AFTER: Final = "days_after"
 CONF_EASTER_OFFSET: Final = "easter_offset"  # days from Easter Sunday
+CONF_ADVENT_OFFSET: Final = "advent_offset"  # days from the First Sunday of Advent
+CONF_THROUGH_CHRISTMAS_EVE: Final = "through_christmas_eve"
 CONF_START_DATE: Final = "start_date"
 CONF_END_DATE: Final = "end_date"
 CONF_CALENDAR: Final = "calendar"

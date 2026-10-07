@@ -38,6 +38,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_ADVENT_OFFSET,
     CONF_ALL_NIGHT,
     CONF_BRIGHTNESS,
     CONF_CALENDAR,
@@ -67,6 +68,7 @@ from .const import (
     CONF_START_DATE,
     CONF_SUN_ELEVATION,
     CONF_SUN_SOURCE,
+    CONF_THROUGH_CHRISTMAS_EVE,
     CONF_TRANSITION,
     CONF_USE_SCHEDULE,
     CONF_WEEK,
@@ -83,6 +85,7 @@ from .const import (
     DEFAULT_SUN_ELEVATION,
     DEFAULT_TRANSITION,
     DOMAIN,
+    KIND_ADVENT,
     KIND_CALENDAR,
     KIND_EASTER,
     KIND_NTH_WEEKDAY,
@@ -295,6 +298,17 @@ def _dates_schema(kind: str, values: dict[str, Any]) -> dict[Any, Any]:
             ): EASTER_OFFSET_SELECTOR,
             **days,
         }
+    if kind == KIND_ADVENT:
+        return {
+            vol.Required(
+                CONF_ADVENT_OFFSET, default=values.get(CONF_ADVENT_OFFSET, 0)
+            ): EASTER_OFFSET_SELECTOR,
+            **days,
+            vol.Optional(
+                CONF_THROUGH_CHRISTMAS_EVE,
+                default=bool(values.get(CONF_THROUGH_CHRISTMAS_EVE, False)),
+            ): BooleanSelector(),
+        }
     if kind == KIND_ONCE:
         return {
             vol.Required(
@@ -427,7 +441,12 @@ def _normalise_holiday(
             errors[CONF_END_DATE] = "end_before_start"
     elif kind == KIND_CALENDAR:
         data[CONF_KEYWORD] = (data.get(CONF_KEYWORD) or "").strip()
-    for key in (CONF_DAYS_BEFORE, CONF_DAYS_AFTER, CONF_EASTER_OFFSET):
+    for key in (
+        CONF_DAYS_BEFORE,
+        CONF_DAYS_AFTER,
+        CONF_EASTER_OFFSET,
+        CONF_ADVENT_OFFSET,
+    ):
         if key in data:
             data[key] = int(data[key])
 
@@ -664,6 +683,10 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
     async def async_step_easter(self, _: Any = None) -> SubentryFlowResult:
         """Around Easter."""
         return await self._async_custom(KIND_EASTER)
+
+    async def async_step_advent(self, _: Any = None) -> SubentryFlowResult:
+        """Relative to the First Sunday of Advent."""
+        return await self._async_custom(KIND_ADVENT)
 
     async def async_step_once(self, _: Any = None) -> SubentryFlowResult:
         """A one-time event."""

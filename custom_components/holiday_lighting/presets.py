@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from .const import (
+    CONF_ADVENT_OFFSET,
     CONF_COLOR_NAMES,
     CONF_COLORS,
     CONF_DAYS_AFTER,
@@ -19,8 +20,10 @@ from .const import (
     CONF_MONTH,
     CONF_NAME,
     CONF_START,
+    CONF_THROUGH_CHRISTMAS_EVE,
     CONF_WEEK,
     CONF_WEEKDAY,
+    KIND_ADVENT,
     KIND_EASTER,
     KIND_NTH_WEEKDAY,
     KIND_YEARLY,
@@ -78,12 +81,28 @@ def _easter(name: str, offset: int, colors: dict[str, list[str]]) -> dict[str, A
     }
 
 
+def _advent(
+    name: str, offset: int, colors: dict[str, list[str]], *, season: bool = False
+) -> dict[str, Any]:
+    """A day relative to the First Sunday of Advent, or the whole season."""
+    return {
+        CONF_NAME: name,
+        CONF_KIND: KIND_ADVENT,
+        CONF_ADVENT_OFFSET: offset,
+        CONF_DAYS_BEFORE: 0,
+        CONF_DAYS_AFTER: 0,
+        CONF_THROUGH_CHRISTMAS_EVE: season,
+        **colors,
+    }
+
+
 def _c(hexes: list[str], names: list[str]) -> dict[str, list[str]]:
     return {CONF_COLORS: hexes, CONF_COLOR_NAMES: names}
 
 
 BLUE, WHITE, GOLD, RED = "#1E64FF", "#FFFFFF", "#FFC72C", "#FF0000"
 PURPLE = "#7B2CBF"
+ROSE = "#FF5A8C"
 
 PRESETS: Final[dict[str, dict[str, Any]]] = {
     "new_years": _yearly(
@@ -111,6 +130,9 @@ PRESETS: Final[dict[str, dict[str, Any]]] = {
             CONF_COLOR_NAMES: ["Red", "Pink", "White"],
         },
     ),
+    "mardi_gras": _easter(
+        "Mardi Gras", -47, _c([PURPLE, "#00A651", GOLD], ["Purple", "Green", "Gold"])
+    ),
     "st_patricks": _yearly(
         "St. Patrick's Day",
         "03-10",
@@ -125,6 +147,9 @@ PRESETS: Final[dict[str, dict[str, Any]]] = {
     ),
     "annunciation": _yearly(
         "Annunciation", "03-25", "03-25", _c([BLUE, WHITE], ["Blue", "White"])
+    ),
+    "palm_sunday": _easter(
+        "Palm Sunday", -7, _c([RED, "#2E9E3E"], ["Red", "Palm Green"])
     ),
     "easter": {
         CONF_NAME: "Easter",
@@ -170,8 +195,16 @@ PRESETS: Final[dict[str, dict[str, Any]]] = {
         },
     ),
     "memorial_day": _nth("Memorial Day", 5, -1, MONDAY, 3, 0, RED_WHITE_BLUE),
+    "ascension": _easter(
+        "Ascension",
+        42,
+        _c([WHITE, GOLD, "#6EC6FF"], ["White", "Gold", "Sky Blue"]),
+    ),
     "pentecost": _easter(
         "Pentecost", 49, _c([RED, "#FF6600", GOLD], ["Red", "Orange", "Gold"])
+    ),
+    "trinity_sunday": _easter(
+        "Trinity Sunday", 56, _c([WHITE, GOLD, BLUE], ["White", "Gold", "Blue"])
     ),
     "corpus_christi": _easter(
         "Corpus Christi", 63, _c([GOLD, WHITE], ["Gold", "White"])
@@ -253,6 +286,18 @@ PRESETS: Final[dict[str, dict[str, Any]]] = {
             CONF_COLORS: ["#FF8C00", "#FFD700", "#B22222"],
             CONF_COLOR_NAMES: ["Dark Orange", "Gold", "Deep Red"],
         },
+    ),
+    "christ_the_king": _advent(
+        "Christ the King", -7, _c([GOLD, WHITE, RED], ["Gold", "White", "Red"])
+    ),
+    "advent": _advent(
+        "Advent",
+        0,
+        _c([PURPLE, PURPLE, PURPLE, ROSE], ["Purple", "Purple", "Purple", "Rose"]),
+        season=True,
+    ),
+    "gaudete_sunday": _advent(
+        "Gaudete Sunday", 14, _c([ROSE, "#FFB6C1", WHITE], ["Rose", "Pink", "White"])
     ),
     "immaculate_conception": _yearly(
         "Immaculate Conception", "12-08", "12-08", _c([BLUE, WHITE], ["Blue", "White"])
