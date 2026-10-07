@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-06
+## [1.0.0] - 2026-10-06
 
 First release.
 
@@ -39,5 +39,5 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/bisman-automations/ha-holiday-lighting/releases/tag/v0.1.0
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/bisman-automations/ha-holiday-lighting/releases/tag/v1.0.0
