@@ -414,9 +414,14 @@ async def test_services(
 from homeassistant.core import Context, SupportsResponse  # noqa: E402
 from homeassistant.helpers import issue_registry as ir  # noqa: E402
 
+from custom_components.holiday_lighting.config_flow import (  # noqa: E402
+    _holiday_schema,
+    _preset_data,
+)
 from custom_components.holiday_lighting.diagnostics import (  # noqa: E402
     async_get_config_entry_diagnostics,
 )
+from custom_components.holiday_lighting.presets import PRESETS  # noqa: E402
 
 HOLIDAY_BASE = {
     "colors": ["#FF0000", "#00FF00", "#FFFFFF"],
@@ -924,3 +929,74 @@ async def test_options_flow_offers_sun_source(hass: HomeAssistant) -> None:
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["sun_source"] == "sun.sun"
+
+
+def _frontend_initial(schema: list[dict]) -> dict:
+    """Initial form data the way the HA frontend fills it.
+
+    A field's suggested value or default is used as-is; for a section with
+    a default, that default wins over the fields inside it.
+    """
+    data: dict = {}
+    for field in schema:
+        description = field.get("description") or {}
+        if "suggested_value" in description:
+            data[field["name"]] = description["suggested_value"]
+        elif "default" in field:
+            data[field["name"]] = field["default"]
+        elif field.get("type") == "expandable":
+            data[field["name"]] = _frontend_initial(field["schema"])
+    return data
+
+
+def _frontend_missing(schema: list[dict], data: dict | None, prefix: str = "") -> list:
+    """Required fields the frontend would flag as not filled in."""
+    missing = []
+    for field in schema:
+        value = (data or {}).get(field["name"])
+        if field.get("type") == "expandable":
+            missing += _frontend_missing(
+                field["schema"], value, f"{prefix}{field['name']}."
+            )
+        elif field.get("required") and value in (None, ""):
+            missing.append(prefix + field["name"])
+    return missing
+
+
+@pytest.mark.parametrize("preset", list(PRESETS))
+def test_preset_form_submits_as_shown(preset: str) -> None:
+    """Regression: a hidden required field blocked every holiday form."""
+    data = _preset_data(preset, LIGHTS)
+    schema = voluptuous_serialize.convert(
+        _holiday_schema(data["kind"], data), custom_serializer=cv.custom_serializer
+    )
+    assert _frontend_missing(schema, _frontend_initial(schema)) == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "user_fields"),
+    [
+        ("yearly", ["name", "start", "end"]),
+        ("nth_weekday", ["name"]),
+        ("easter", ["name"]),
+        ("once", ["name", "start_date", "end_date"]),
+        ("calendar", ["name", "calendar"]),
+    ],
+)
+def test_custom_form_only_asks_for_user_fields(kind: str, user_fields: list) -> None:
+    schema = voluptuous_serialize.convert(
+        _holiday_schema(kind, {"lights": LIGHTS}),
+        custom_serializer=cv.custom_serializer,
+    )
+    assert _frontend_missing(schema, _frontend_initial(schema)) == user_fields
+
+
+def test_edit_form_shows_saved_schedule_override() -> None:
+    saved = _preset_data("new_years", LIGHTS) | {"off_time": "01:00:00"}
+    schema = voluptuous_serialize.convert(
+        _holiday_schema(saved["kind"], saved), custom_serializer=cv.custom_serializer
+    )
+    assert _frontend_initial(schema)["schedule_override"] == {
+        "all_night": False,
+        "off_time": "01:00:00",
+    }

@@ -302,6 +302,19 @@ def _dates_schema(kind: str, values: dict[str, Any]) -> dict[Any, Any]:
     }
 
 
+def _section_default(override: dict[str, Any]) -> dict[str, Any]:
+    """Current override values for the collapsed schedule section.
+
+    The frontend fills a section from its default rather than from the
+    fields inside it, so the default has to carry every current value.
+    """
+    default: dict[str, Any] = {CONF_ALL_NIGHT: bool(override.get(CONF_ALL_NIGHT))}
+    for key in (CONF_ON_DURATION, CONF_OFF_TIME):
+        if override.get(key):
+            default[key] = override[key]
+    return default
+
+
 def _holiday_schema(kind: str, values: dict[str, Any]) -> vol.Schema:
     override = values.get(SECTION_SCHEDULE) or values
     return vol.Schema(
@@ -349,10 +362,10 @@ def _holiday_schema(kind: str, values: dict[str, Any]) -> vol.Schema:
                     mode=NumberSelectorMode.BOX,
                 )
             ),
-            vol.Optional(SECTION_SCHEDULE, default={}): section(
+            vol.Optional(SECTION_SCHEDULE, default=_section_default(override)): section(
                 vol.Schema(
                     {
-                        vol.Required(
+                        vol.Optional(
                             CONF_ALL_NIGHT,
                             default=bool(override.get(CONF_ALL_NIGHT, False)),
                         ): BooleanSelector(),
