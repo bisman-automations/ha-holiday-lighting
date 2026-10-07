@@ -25,6 +25,8 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    ObjectSelector,
+    ObjectSelectorConfig,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -34,6 +36,7 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_BRIGHTNESS,
+    CONF_COLOR_NAMES,
     CONF_COLORS,
     CONF_DARK_SOURCE,
     CONF_DEFAULT_LIGHTS,
@@ -67,13 +70,29 @@ from .const import (
     SUBENTRY_HOLIDAY,
 )
 from .presets import PRESETS
-from .schedule import format_month_day, parse_colors, parse_month_day
+from .schedule import format_month_day, parse_colors, parse_month_day, rgb_to_hex
 
 CONF_PRESET = "preset"
 PRESET_CUSTOM = "custom"
 
 LIGHTS_SELECTOR = EntitySelector(
-    EntitySelectorConfig(domain=LIGHT_DOMAIN, multiple=True)
+    EntitySelectorConfig(domain=LIGHT_DOMAIN, multiple=True, reorder=True)
+)
+
+# Each color is an item with a picker and an optional name; the list can be
+# dragged into the order the colors rotate in.
+FIELD_COLOR = "color"
+FIELD_COLOR_NAME = "name"
+COLORS_SELECTOR = ObjectSelector(
+    ObjectSelectorConfig(
+        multiple=True,
+        label_field=FIELD_COLOR_NAME,
+        translation_key="color_list",
+        fields={
+            FIELD_COLOR_NAME: {"selector": {"text": {}}, "required": False},
+            FIELD_COLOR: {"selector": {"color_rgb": {}}, "required": True},
+        },
+    )
 )
 
 DEFAULT_SCHEDULE: dict[str, Any] = {
@@ -157,8 +176,28 @@ def _validate_schedule(user_input: dict[str, Any]) -> dict[str, str]:
     return errors
 
 
+def _color_items(values: dict[str, Any]) -> list[dict[str, Any]]:
+    """Stored hex colors (plus names) -> items for the color list selector."""
+    colors = values.get(CONF_COLORS) or []
+    if colors and isinstance(colors[0], dict):
+        return list(colors)  # Already form items (re-showing after an error)
+    names = values.get(CONF_COLOR_NAMES) or []
+    items = []
+    for index, hex_color in enumerate(colors):
+        name = names[index] if index < len(names) and names[index] else hex_color
+        items.append(
+            {FIELD_COLOR_NAME: name, FIELD_COLOR: list(parse_color_rgb(hex_color))}
+        )
+    return items
+
+
+def parse_color_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Hex string -> RGB tuple."""
+    value = hex_color.lstrip("#")
+    return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+
 def _holiday_schema(values: dict[str, Any]) -> vol.Schema:
-    colors = values.get(CONF_COLORS)
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): TextSelector(),
@@ -166,10 +205,7 @@ def _holiday_schema(values: dict[str, Any]) -> vol.Schema:
                 CONF_START, default=values.get(CONF_START, "")
             ): TextSelector(),
             vol.Required(CONF_END, default=values.get(CONF_END, "")): TextSelector(),
-            vol.Required(
-                CONF_COLORS,
-                default=", ".join(colors) if isinstance(colors, list) else colors or "",
-            ): TextSelector(),
+            vol.Required(CONF_COLORS, default=_color_items(values)): COLORS_SELECTOR,
             vol.Optional(
                 CONF_LIGHTS, description=_suggested(values, CONF_LIGHTS)
             ): LIGHTS_SELECTOR,
@@ -236,10 +272,23 @@ def _normalise_holiday(
             data[key] = format_month_day(parse_month_day(data[key]))
         except ValueError:
             errors[key] = "invalid_date"
-    try:
-        data[CONF_COLORS] = parse_colors(data[CONF_COLORS])
-    except ValueError:
-        errors[CONF_COLORS] = "invalid_colors"
+    colors = data.get(CONF_COLORS) or []
+    if isinstance(colors, str):
+        # Text input (older forms, tests): "red, #00FF00"
+        try:
+            data[CONF_COLORS] = parse_colors(colors)
+            data[CONF_COLOR_NAMES] = list(data[CONF_COLORS])
+        except ValueError:
+            errors[CONF_COLORS] = "invalid_colors"
+    elif not colors:
+        errors[CONF_COLORS] = "colors_required"
+    else:
+        hexes = [rgb_to_hex(item[FIELD_COLOR]) for item in colors]
+        data[CONF_COLORS] = hexes
+        data[CONF_COLOR_NAMES] = [
+            (item.get(FIELD_COLOR_NAME) or "").strip() or hexes[index]
+            for index, item in enumerate(colors)
+        ]
     data[CONF_INTERVAL] = int(data[CONF_INTERVAL])
     if CONF_BRIGHTNESS in data:
         data[CONF_BRIGHTNESS] = int(data[CONF_BRIGHTNESS])
@@ -253,6 +302,7 @@ def _preset_data(key: str, lights: list[str]) -> dict[str, Any]:
         CONF_START: preset["start"],
         CONF_END: preset["end"],
         CONF_COLORS: list(preset["colors"]),
+        CONF_COLOR_NAMES: list(preset["color_names"]),
         CONF_LIGHTS: list(lights),
         CONF_MODE: MODE_ROTATE,
         CONF_INTERVAL: DEFAULT_INTERVAL,

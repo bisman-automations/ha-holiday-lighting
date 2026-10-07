@@ -120,6 +120,12 @@ def parse_color(value: str) -> tuple[int, int, int]:
     return color_name_to_rgb(value.lower().replace(" ", ""))
 
 
+def rgb_to_hex(rgb: Sequence[int]) -> str:
+    """[255, 136, 0] -> "#FF8800"."""
+    red, green, blue = (max(0, min(255, int(c))) for c in rgb)
+    return f"#{red:02X}{green:02X}{blue:02X}"
+
+
 def parse_colors(value: str | Sequence[str]) -> list[str]:
     """Parse a comma-separated color list and normalise to "#RRGGBB"."""
     items = value.split(",") if isinstance(value, str) else list(value)

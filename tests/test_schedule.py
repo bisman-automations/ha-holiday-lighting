@@ -13,6 +13,7 @@ from custom_components.holiday_lighting.schedule import (
     night_of,
     parse_colors,
     parse_month_day,
+    rgb_to_hex,
     rotation_assignments,
     upcoming_holiday,
 )
@@ -113,3 +114,8 @@ def test_can_start() -> None:
     # No hard off: evenings only
     assert can_start(at(24, 17), None)
     assert not can_start(at(25, 6), None)
+
+
+def test_rgb_to_hex() -> None:
+    assert rgb_to_hex([255, 136, 0]) == "#FF8800"
+    assert rgb_to_hex((0, 0, 0)) == "#000000"

@@ -13,6 +13,7 @@ CONF_PRESETS: Final = "presets"
 # Per-holiday keys
 CONF_NAME: Final = "name"
 CONF_COLORS: Final = "colors"
+CONF_COLOR_NAMES: Final = "color_names"
 CONF_START: Final = "start"
 CONF_END: Final = "end"
 CONF_LIGHTS: Final = "lights"

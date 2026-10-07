@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-06
+
+### Changed
+
+- **Colors** are chosen with a color picker instead of typed. Add as many as you like, give each an optional name, and drag them into the order they rotate in.
+- **Lights** can be dragged to reorder, in holidays and in the default lights.
+
+Holidays saved by 1.0.0 keep working and open in the new editor with their colors in the same order.
+
 ## [1.0.0] - 2026-10-06
 
 First release.
@@ -39,5 +48,6 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bisman-automations/ha-holiday-lighting/releases/tag/v1.0.0

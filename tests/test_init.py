@@ -4,11 +4,13 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+import voluptuous_serialize
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -88,11 +90,29 @@ async def test_add_and_edit_holiday_subentry(hass: HomeAssistant) -> None:
         result["flow_id"], {"preset": "independence_day"}
     )
     assert result["step_id"] == "holiday"
+    # The form serializes for the frontend, with a sortable picker list for
+    # colors and a reorderable light list.
+    schema = voluptuous_serialize.convert(
+        result["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    fields = {field["name"]: field for field in schema}
+    colors_field = fields["colors"]["selector"]["object"]
+    assert colors_field["multiple"] is True
+    assert colors_field["fields"]["color"]["selector"] == {"color_rgb": {}}
+    assert fields["lights"]["selector"]["entity"]["reorder"] is True
+    # Preset colors come pre-filled as named picker items.
+    assert fields["colors"]["default"] == [
+        {"name": "Red", "color": [255, 0, 0]},
+        {"name": "White", "color": [255, 255, 255]},
+        {"name": "Blue", "color": [0, 0, 255]},
+    ]
+
     form = {
         "name": "Christmas",  # duplicate
         "start": "06-28",
         "end": "07-05",
-        "colors": "red, white, purple-ish",
+        "colors": [],
+        "lights": ["light.garage", "light.porch"],
         "mode": "rotate",
         "interval": 30,
         "transition": 2,
@@ -100,30 +120,80 @@ async def test_add_and_edit_holiday_subentry(hass: HomeAssistant) -> None:
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], form
     )
-    assert result["errors"] == {
-        "name": "name_exists",
-        "colors": "invalid_colors",
+    assert result["errors"] == {"name": "name_exists", "colors": "colors_required"}
+
+    # Order as the user dragged it, with one unnamed color.
+    form |= {
+        "name": "Fourth",
+        "colors": [
+            {"name": "Blue", "color": [0, 0, 255]},
+            {"color": [255, 255, 255]},
+            {"name": " Red ", "color": [255, 0, 0]},
+        ],
     }
-    form |= {"name": "Fourth", "colors": "red, white, blue"}
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], form
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done(wait_background_tasks=True)
     sub = next(s for s in entry.subentries.values() if s.title == "Fourth")
-    assert sub.data["colors"] == ["#FF0000", "#FFFFFF", "#0000FF"]
+    assert sub.data["colors"] == ["#0000FF", "#FFFFFF", "#FF0000"]
+    assert sub.data["color_names"] == ["Blue", "#FFFFFF", "Red"]
+    assert sub.data["lights"] == ["light.garage", "light.porch"]
     # Entry reloaded, so the select picks up the new holiday.
     assert (
         "Fourth"
         in hass.states.get("select.holiday_lighting_theme").attributes["options"]
     )
 
+    # Editing shows the saved colors, in order, and saves a new order.
     result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
+    shown = {
+        f["name"]: f
+        for f in voluptuous_serialize.convert(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    assert [item["name"] for item in shown["colors"]["default"]] == [
+        "Blue",
+        "#FFFFFF",
+        "Red",
+    ]
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], form | {"name": "July 4th", "end": "07-04"}
+        result["flow_id"],
+        form
+        | {
+            "name": "July 4th",
+            "end": "07-04",
+            "colors": list(reversed(form["colors"])),
+        },
     )
     assert result["reason"] == "reconfigure_successful"
-    assert entry.subentries[sub.subentry_id].data["end"] == "07-04"
+    data = entry.subentries[sub.subentry_id].data
+    assert data["end"] == "07-04"
+    assert data["colors"] == ["#FF0000", "#FFFFFF", "#0000FF"]
+
+
+async def test_edit_holiday_saved_by_1_0_0(hass: HomeAssistant) -> None:
+    """Holidays saved before color names existed still open for editing."""
+    entry = _entry()  # Christmas has colors but no color_names
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    sub_id = next(iter(entry.subentries))
+    assert "color_names" not in entry.subentries[sub_id].data
+    result = await entry.start_subentry_reconfigure_flow(hass, sub_id)
+    shown = {
+        f["name"]: f
+        for f in voluptuous_serialize.convert(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    assert shown["colors"]["default"] == [
+        {"name": "#FF0000", "color": [255, 0, 0]},
+        {"name": "#00FF00", "color": [0, 255, 0]},
+        {"name": "#FFFFFF", "color": [255, 255, 255]},
+    ]
 
 
 def _entry(**options) -> MockConfigEntry:

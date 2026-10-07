@@ -9,7 +9,7 @@
           "presets": "Starter holidays"
         },
         "data_description": {
-          "default_lights": "In order: colors rotate down this list."
+          "default_lights": "Drag to reorder: colors rotate down this list."
         }
       },
       "schedule": {
@@ -58,7 +58,7 @@
           "off_time": "Hard off time"
         },
         "data_description": {
-          "default_lights": "Used for new holidays and for holidays with no lights selected.",
+          "default_lights": "Used for new holidays and for holidays with no lights selected. Drag to reorder.",
           "use_schedule": "When off, the lights run whenever the Enabled switch is on.",
           "dark_source": "What decides it is dark enough to turn the lights on.",
           "sun_elevation": "Dark when the sun is below this angle. Sunset is about -0.8°; civil dusk is -6°.",
@@ -103,8 +103,8 @@
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
             "end": "Last day each year, e.g. 12-26. May wrap the new year.",
-            "colors": "Comma-separated hex codes or color names, e.g. red, green, #FFFFFF.",
-            "lights": "In order: colors move down this list each step. Empty uses the default lights.",
+            "colors": "Add colors with the picker. Drag to reorder; they rotate in this order. The name is optional and is just a label.",
+            "lights": "Drag to reorder: colors move down this list each step. Empty uses the default lights.",
             "interval": "Seconds between rotation steps.",
             "brightness": "Leave empty to keep each light's current brightness."
           }
@@ -125,8 +125,8 @@
           "data_description": {
             "start": "First day each year, e.g. 12-01.",
             "end": "Last day each year, e.g. 12-26. May wrap the new year.",
-            "colors": "Comma-separated hex codes or color names, e.g. red, green, #FFFFFF.",
-            "lights": "In order: colors move down this list each step. Empty uses the default lights.",
+            "colors": "Add colors with the picker. Drag to reorder; they rotate in this order. The name is optional and is just a label.",
+            "lights": "Drag to reorder: colors move down this list each step. Empty uses the default lights.",
             "interval": "Seconds between rotation steps.",
             "brightness": "Leave empty to keep each light's current brightness."
           }
@@ -136,7 +136,8 @@
         "name_required": "Enter a name.",
         "name_exists": "A holiday with this name already exists.",
         "invalid_date": "Use MM-DD, e.g. 12-25.",
-        "invalid_colors": "Use hex codes (#FF0000) or color names (red), separated by commas."
+        "invalid_colors": "Use hex codes (#FF0000) or color names (red), separated by commas.",
+        "colors_required": "Add at least one color."
       },
       "abort": {
         "reconfigure_successful": "Holiday updated."
@@ -168,6 +169,12 @@
       "options": {
         "rotate": "Rotate colors",
         "static": "Static colors"
+      }
+    },
+    "color_list": {
+      "fields": {
+        "name": "Name",
+        "color": "Color"
       }
     }
   },

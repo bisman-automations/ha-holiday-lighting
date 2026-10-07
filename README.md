@@ -47,8 +47,8 @@ On the integration page, use **Add holiday** to add more holidays, or the ⋮ me
 | Field | Notes |
 | --- | --- |
 | Start / End | `MM-DD`, repeats yearly. Ranges can wrap the new year (`12-31` to `01-01`). |
-| Colors | Hex codes or color names: `red, green, #FFFFFF`. |
-| Lights | In order; empty uses the default lights. |
+| Colors | Add as many as you like with the color picker, each with an optional name. Drag to reorder; colors rotate in this order. |
+| Lights | Drag to reorder; colors move down the list in this order. Empty uses the default lights. |
 | Mode | Rotate or static. |
 | Rotation interval | Seconds between steps. |
 | Brightness | Optional; empty keeps each light's brightness. |
