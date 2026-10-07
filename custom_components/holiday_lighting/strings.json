@@ -1,0 +1,243 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Holiday Lighting",
+        "description": "Choose the lights to use by default and any holidays to start with. You can add and edit holidays later.",
+        "data": {
+          "default_lights": "Default lights",
+          "presets": "Starter holidays"
+        },
+        "data_description": {
+          "default_lights": "In order: colors rotate down this list."
+        }
+      },
+      "schedule": {
+        "title": "Nightly schedule",
+        "description": "Turn the lights on when it gets dark, then off after a set time or at a hard off time, whichever comes first.",
+        "data": {
+          "use_schedule": "Use nightly schedule",
+          "dark_source": "Dark detection",
+          "sun_elevation": "Sun elevation threshold",
+          "lux_sensor": "Illuminance sensor",
+          "lux_threshold": "Illuminance threshold",
+          "on_duration": "Stay on for",
+          "off_time": "Hard off time"
+        },
+        "data_description": {
+          "use_schedule": "When off, the lights run whenever the Enabled switch is on.",
+          "dark_source": "What decides it is dark enough to turn the lights on.",
+          "sun_elevation": "Dark when the sun is below this angle. Sunset is about -0.8°; civil dusk is -6°.",
+          "lux_sensor": "Required when dark detection uses illuminance.",
+          "lux_threshold": "Dark when the sensor reads below this.",
+          "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
+          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit."
+        }
+      }
+    },
+    "error": {
+      "lux_sensor_required": "Choose an illuminance sensor for this dark detection mode."
+    },
+    "abort": {
+      "single_instance_allowed": "Holiday Lighting is already set up.",
+      "already_configured": "Holiday Lighting is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Holiday Lighting settings",
+        "data": {
+          "default_lights": "Default lights",
+          "use_schedule": "Use nightly schedule",
+          "dark_source": "Dark detection",
+          "sun_elevation": "Sun elevation threshold",
+          "lux_sensor": "Illuminance sensor",
+          "lux_threshold": "Illuminance threshold",
+          "on_duration": "Stay on for",
+          "off_time": "Hard off time"
+        },
+        "data_description": {
+          "default_lights": "Used for new holidays and for holidays with no lights selected.",
+          "use_schedule": "When off, the lights run whenever the Enabled switch is on.",
+          "dark_source": "What decides it is dark enough to turn the lights on.",
+          "sun_elevation": "Dark when the sun is below this angle. Sunset is about -0.8°; civil dusk is -6°.",
+          "lux_sensor": "Required when dark detection uses illuminance.",
+          "lux_threshold": "Dark when the sensor reads below this.",
+          "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
+          "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit."
+        }
+      }
+    },
+    "error": {
+      "lux_sensor_required": "Choose an illuminance sensor for this dark detection mode."
+    }
+  },
+  "config_subentries": {
+    "holiday": {
+      "initiate_flow": {
+        "user": "Add holiday"
+      },
+      "entry_type": "Holiday",
+      "step": {
+        "user": {
+          "title": "Add holiday",
+          "description": "Start from a preset or from scratch.",
+          "data": {
+            "preset": "Preset"
+          }
+        },
+        "holiday": {
+          "title": "Holiday",
+          "data": {
+            "name": "Name",
+            "start": "Start (MM-DD)",
+            "end": "End (MM-DD)",
+            "colors": "Colors",
+            "lights": "Lights",
+            "mode": "Mode",
+            "interval": "Rotation interval",
+            "brightness": "Brightness",
+            "transition": "Transition"
+          },
+          "data_description": {
+            "start": "First day each year, e.g. 12-01.",
+            "end": "Last day each year, e.g. 12-26. May wrap the new year.",
+            "colors": "Comma-separated hex codes or color names, e.g. red, green, #FFFFFF.",
+            "lights": "In order: colors move down this list each step. Empty uses the default lights.",
+            "interval": "Seconds between rotation steps.",
+            "brightness": "Leave empty to keep each light's current brightness."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit holiday",
+          "data": {
+            "name": "Name",
+            "start": "Start (MM-DD)",
+            "end": "End (MM-DD)",
+            "colors": "Colors",
+            "lights": "Lights",
+            "mode": "Mode",
+            "interval": "Rotation interval",
+            "brightness": "Brightness",
+            "transition": "Transition"
+          },
+          "data_description": {
+            "start": "First day each year, e.g. 12-01.",
+            "end": "Last day each year, e.g. 12-26. May wrap the new year.",
+            "colors": "Comma-separated hex codes or color names, e.g. red, green, #FFFFFF.",
+            "lights": "In order: colors move down this list each step. Empty uses the default lights.",
+            "interval": "Seconds between rotation steps.",
+            "brightness": "Leave empty to keep each light's current brightness."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Enter a name.",
+        "name_exists": "A holiday with this name already exists.",
+        "invalid_date": "Use MM-DD, e.g. 12-25.",
+        "invalid_colors": "Use hex codes (#FF0000) or color names (red), separated by commas."
+      },
+      "abort": {
+        "reconfigure_successful": "Holiday updated."
+      }
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "custom": "Custom",
+        "new_years": "New Year's",
+        "valentines": "Valentine's Day",
+        "st_patricks": "St. Patrick's Day",
+        "easter": "Easter",
+        "independence_day": "Independence Day",
+        "halloween": "Halloween",
+        "thanksgiving": "Thanksgiving",
+        "christmas": "Christmas"
+      }
+    },
+    "dark_source": {
+      "options": {
+        "sun": "Sun elevation",
+        "lux": "Illuminance sensor",
+        "either": "Either (whichever is dark first)"
+      }
+    },
+    "mode": {
+      "options": {
+        "rotate": "Rotate colors",
+        "static": "Static colors"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "theme": {
+        "name": "Theme"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "disabled": "Disabled",
+          "waiting_for_dark": "Waiting for dark",
+          "on": "On",
+          "done_for_tonight": "Done for tonight",
+          "no_holiday": "No holiday"
+        },
+        "state_attributes": {
+          "dark": {
+            "name": "Dark"
+          },
+          "lights_on_at": {
+            "name": "Lights on at"
+          },
+          "hard_off_tonight": {
+            "name": "Hard off tonight"
+          }
+        }
+      },
+      "active_holiday": {
+        "name": "Active holiday"
+      },
+      "lights_off_at": {
+        "name": "Lights off at"
+      }
+    },
+    "switch": {
+      "enabled": {
+        "name": "Enabled"
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Holiday Lighting is not set up."
+    },
+    "unknown_holiday": {
+      "message": "No holiday named {holiday}."
+    }
+  },
+  "services": {
+    "start": {
+      "name": "Start",
+      "description": "Turn the holiday lights on now, ignoring darkness. The duration and hard off time still apply.",
+      "fields": {
+        "holiday": {
+          "name": "Holiday",
+          "description": "Holiday name to show. Leave empty for the current theme."
+        }
+      }
+    },
+    "stop": {
+      "name": "Stop",
+      "description": "Turn the holiday lights off and stay off for the rest of tonight."
+    },
+    "advance": {
+      "name": "Advance",
+      "description": "Move the color rotation forward one step."
+    }
+  }
+}

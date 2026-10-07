@@ -1,0 +1,28 @@
+{
+  "entity": {
+    "select": {
+      "theme": { "default": "mdi:palette" }
+    },
+    "sensor": {
+      "status": {
+        "default": "mdi:string-lights",
+        "state": {
+          "disabled": "mdi:string-lights-off",
+          "waiting_for_dark": "mdi:weather-sunset-down",
+          "done_for_tonight": "mdi:sleep",
+          "no_holiday": "mdi:calendar-blank"
+        }
+      },
+      "active_holiday": { "default": "mdi:party-popper" },
+      "lights_off_at": { "default": "mdi:timer-off-outline" }
+    },
+    "switch": {
+      "enabled": { "default": "mdi:string-lights" }
+    }
+  },
+  "services": {
+    "start": { "service": "mdi:play" },
+    "stop": { "service": "mdi:stop" },
+    "advance": { "service": "mdi:skip-next" }
+  }
+}
