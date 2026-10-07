@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-06
+
+### Added
+
+- **New holiday date types.** A weekday rule (e.g. 4th Thursday of November), days around Easter (calculated every year), one-time events with a year, and calendar holidays that turn on any night a calendar has an event, optionally only events whose title contains a keyword.
+- **More presets:** Mother's Day, Memorial Day, Labor Day, and Veterans Day.
+- **Effects.** Whole-house cycle, whole-house fade, and twinkle, alongside chase and static.
+- **Per-holiday schedule.** A holiday can stay on all night or use its own duration or hard off time.
+- **Weekend hard off time** for Friday and Saturday nights.
+- **Manual changes are respected.** A light changed by hand is left alone for the rest of the night (can be turned off in settings).
+- **Repairs** for lights that can't show color or are unavailable.
+- **Diagnostics** download.
+- **Integration icon,** with light and dark versions (Home Assistant 2026.3+).
+
+### Changed
+
+- Easter and Thanksgiving presets now follow the real date each year instead of a fixed window.
+- "Rotate" mode is now called **Chase**. Existing holidays keep working unchanged.
+
+### Fixed
+
+- If Home Assistant missed a night's off time (for example, restarting at 11:00 PM), the lights stayed off the following night. They now turn off as soon as Home Assistant is back and come on as usual the next evening.
+
 ## [1.1.0] - 2026-10-06
 
 ### Changed
@@ -48,6 +71,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bisman-automations/ha-holiday-lighting/releases/tag/v1.0.0

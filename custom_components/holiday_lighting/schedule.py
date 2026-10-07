@@ -6,6 +6,7 @@ can be unit tested directly.
 
 from __future__ import annotations
 
+import random
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
@@ -13,7 +14,26 @@ from typing import Any
 
 from homeassistant.util.color import color_name_to_rgb
 
-from .const import CONF_END, CONF_START
+from .const import (
+    CONF_DAYS_AFTER,
+    CONF_DAYS_BEFORE,
+    CONF_END,
+    CONF_END_DATE,
+    CONF_KIND,
+    CONF_MONTH,
+    CONF_START,
+    CONF_START_DATE,
+    CONF_WEEK,
+    CONF_WEEKDAY,
+    KIND_EASTER,
+    KIND_NTH_WEEKDAY,
+    KIND_ONCE,
+    KIND_YEARLY,
+    MODE_CYCLE,
+    MODE_FADE,
+    MODE_STATIC,
+    MODE_TWINKLE,
+)
 
 _MONTH_DAY_RE = re.compile(r"^(\d{1,2})-(\d{1,2})$")
 _HEX_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
@@ -52,48 +72,129 @@ def in_window(today: date, start: str, end: str) -> bool:
     return current >= first or current <= last
 
 
+# --- Holiday windows ---------------------------------------------------------
+#
+# Every kind of holiday reduces to "the date windows it covers in a given
+# year". Calendar holidays have no fixed dates; the controller decides those.
+
+
+def easter_sunday(year: int) -> date:
+    """Western (Gregorian) Easter Sunday, anonymous Gregorian algorithm."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    el = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * el) // 451
+    month, day = divmod(h + el - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+def nth_weekday(year: int, month: int, week: int, weekday: int) -> date:
+    """The Nth weekday of a month (week -1 = last), e.g. 4th Thursday."""
+    if week == -1:
+        last_day = (date(year + (month == 12), month % 12 + 1, 1)) - timedelta(days=1)
+        return last_day - timedelta(days=(last_day.weekday() - weekday) % 7)
+    first = date(year, month, 1)
+    first_match = first + timedelta(days=(weekday - first.weekday()) % 7)
+    return first_match + timedelta(weeks=week - 1)
+
+
+def _yearly_date(year: int, month_day: tuple[int, int]) -> date:
+    try:
+        return date(year, *month_day)
+    except ValueError:  # Feb 29 in a non-leap year
+        return date(year, 2, 28)
+
+
+def holiday_windows(holiday: Mapping[str, Any], year: int) -> list[tuple[date, date]]:
+    """Windows (inclusive start, end) for a holiday, anchored in `year`."""
+    kind = holiday.get(CONF_KIND, KIND_YEARLY)
+    if kind == KIND_YEARLY:
+        first = parse_month_day(holiday[CONF_START])
+        last = parse_month_day(holiday[CONF_END])
+        start = _yearly_date(year, first)
+        end = _yearly_date(year + (last < first), last)
+        return [(start, end)]
+    if kind in (KIND_NTH_WEEKDAY, KIND_EASTER):
+        if kind == KIND_EASTER:
+            anchor = easter_sunday(year)
+        else:
+            anchor = nth_weekday(
+                year,
+                int(holiday[CONF_MONTH]),
+                int(holiday[CONF_WEEK]),
+                int(holiday[CONF_WEEKDAY]),
+            )
+        before = timedelta(days=int(holiday.get(CONF_DAYS_BEFORE, 0)))
+        after = timedelta(days=int(holiday.get(CONF_DAYS_AFTER, 0)))
+        return [(anchor - before, anchor + after)]
+    if kind == KIND_ONCE:
+        start = date.fromisoformat(holiday[CONF_START_DATE])
+        end = date.fromisoformat(holiday[CONF_END_DATE])
+        return [(start, end)] if start.year == year else []
+    return []
+
+
+def _windows_near(holiday: Mapping[str, Any], day: date) -> list[tuple[date, date]]:
+    windows: list[tuple[date, date]] = []
+    for year in (day.year - 1, day.year, day.year + 1):
+        windows.extend(holiday_windows(holiday, year))
+    return windows
+
+
+def current_window(holiday: Mapping[str, Any], day: date) -> tuple[date, date] | None:
+    """The window containing `day`, if any."""
+    for start, end in _windows_near(holiday, day):
+        if start <= day <= end:
+            return start, end
+    return None
+
+
 def window_length(start: str, end: str) -> int:
-    """Number of days in the window, used to prefer more specific holidays."""
-    first = date(_REFERENCE_YEAR, *parse_month_day(start))
-    last = date(_REFERENCE_YEAR, *parse_month_day(end))
-    days = (last - first).days
-    if days < 0:
-        days += 366
-    return days + 1
+    """Number of days in a yearly MM-DD window."""
+    window = holiday_windows({CONF_START: start, CONF_END: end}, _REFERENCE_YEAR)[0]
+    return (window[1] - window[0]).days + 1
 
 
 def active_holiday(
-    holidays: Iterable[Mapping[str, Any]], today: date
+    holidays: Iterable[Mapping[str, Any]],
+    today: date,
+    calendar_active: Iterable[str] = (),
 ) -> Mapping[str, Any] | None:
     """Pick the holiday active today.
 
-    When windows overlap, the shortest window wins so a specific holiday
-    (New Year's Eve) beats a broad season (Winter).
+    Calendar holidays with an event tonight win. Otherwise, when windows
+    overlap, the shortest window wins, so a specific holiday (New Year's Eve)
+    beats a broad season (Winter).
     """
-    matches = [
-        holiday
-        for holiday in holidays
-        if in_window(today, holiday[CONF_START], holiday[CONF_END])
-    ]
-    if not matches:
-        return None
-    return min(
-        matches,
-        key=lambda holiday: window_length(holiday[CONF_START], holiday[CONF_END]),
-    )
-
-
-def next_start(start: str, today: date) -> date:
-    """The next date (today or later) on which a window starts."""
-    month, day = parse_month_day(start)
-    for year in range(today.year, today.year + 9):
-        try:
-            candidate = date(year, month, day)
-        except ValueError:  # Feb 29 in a non-leap year
+    holidays = list(holidays)
+    calendar_ids = set(calendar_active)
+    for holiday in holidays:
+        if holiday.get("id") in calendar_ids:
+            return holiday
+    best: tuple[int, Mapping[str, Any]] | None = None
+    for holiday in holidays:
+        if (window := current_window(holiday, today)) is None:
             continue
-        if candidate >= today:
-            return candidate
-    raise ValueError(f"No upcoming date for {start!r}")
+        length = (window[1] - window[0]).days + 1
+        if best is None or length < best[0]:
+            best = (length, holiday)
+    return best[1] if best else None
+
+
+def next_start(holiday: Mapping[str, Any], today: date) -> date | None:
+    """The next window start after today, if the holiday has dates."""
+    starts = [
+        start
+        for year in range(today.year, today.year + 3)
+        for start, _end in holiday_windows(holiday, year)
+        if start > today
+    ]
+    return min(starts) if starts else None
 
 
 def upcoming_holiday(
@@ -101,9 +202,10 @@ def upcoming_holiday(
 ) -> tuple[Mapping[str, Any], date] | None:
     """The holiday whose window starts next (after today)."""
     upcoming = [
-        (holiday, next_start(holiday[CONF_START], today))
+        (holiday, start)
         for holiday in holidays
-        if not in_window(today, holiday[CONF_START], holiday[CONF_END])
+        if current_window(holiday, today) is None
+        and (start := next_start(holiday, today)) is not None
     ]
     if not upcoming:
         return None
@@ -150,6 +252,36 @@ def rotation_assignments(
         color = colors[(index - offset) % len(colors)]
         assignments.setdefault(color, []).append(light)
     return assignments
+
+
+def effect_assignments(
+    mode: str,
+    lights: Sequence[str],
+    colors: Sequence[str],
+    offset: int,
+    rng: random.Random | None = None,
+) -> dict[str, list[str]]:
+    """Which lights get which color for this step of an effect.
+
+    - rotate (chase): colors march one light down the list each step
+    - static: the step-0 chase pattern, never moving
+    - cycle / fade: every light shows the same color, stepping through the
+      list together (fade blends between them)
+    - twinkle: each light picks a random color each step
+    """
+    if not colors or not lights:
+        return {}
+    if mode == MODE_STATIC:
+        return rotation_assignments(lights, colors, 0)
+    if mode in (MODE_CYCLE, MODE_FADE):
+        return {colors[offset % len(colors)]: list(lights)}
+    if mode == MODE_TWINKLE:
+        rng = rng or random.Random()
+        assignments: dict[str, list[str]] = {}
+        for light in lights:
+            assignments.setdefault(rng.choice(list(colors)), []).append(light)
+        return assignments
+    return rotation_assignments(lights, colors, offset)
 
 
 # --- Nightly on/off window -------------------------------------------------

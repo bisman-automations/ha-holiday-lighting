@@ -119,3 +119,87 @@ def test_can_start() -> None:
 def test_rgb_to_hex() -> None:
     assert rgb_to_hex([255, 136, 0]) == "#FF8800"
     assert rgb_to_hex((0, 0, 0)) == "#000000"
+
+
+# --- 1.2: holiday kinds and effects -----------------------------------------
+
+import random  # noqa: E402
+
+from custom_components.holiday_lighting.schedule import (  # noqa: E402
+    current_window,
+    easter_sunday,
+    effect_assignments,
+    holiday_windows,
+    next_start,
+    nth_weekday,
+)
+
+
+def test_easter_and_nth_weekday() -> None:
+    assert easter_sunday(2026) == date(2026, 4, 5)
+    assert easter_sunday(2027) == date(2027, 3, 28)
+    assert easter_sunday(2038) == date(2038, 4, 25)
+    assert nth_weekday(2026, 11, 4, 3) == date(2026, 11, 26)  # Thanksgiving
+    assert nth_weekday(2027, 11, 4, 3) == date(2027, 11, 25)
+    assert nth_weekday(2026, 5, -1, 0) == date(2026, 5, 25)  # Memorial Day
+    assert nth_weekday(2026, 12, -1, 4) == date(2026, 12, 25)  # last Fri of Dec
+    assert nth_weekday(2026, 9, 1, 0) == date(2026, 9, 7)  # Labor Day
+
+
+THANKSGIVING = {
+    "kind": "nth_weekday",
+    "month": 11,
+    "week": 4,
+    "weekday": 3,
+    "days_before": 7,
+    "days_after": 1,
+}
+
+
+def test_rule_windows_move_each_year() -> None:
+    assert holiday_windows(THANKSGIVING, 2026) == [
+        (date(2026, 11, 19), date(2026, 11, 27))
+    ]
+    assert holiday_windows(THANKSGIVING, 2027) == [
+        (date(2027, 11, 18), date(2027, 11, 26))
+    ]
+    easter = {"kind": "easter", "days_before": 7, "days_after": 0}
+    assert current_window(easter, date(2026, 3, 30)) is not None
+    assert current_window(easter, date(2026, 4, 6)) is None
+    assert next_start(easter, date(2026, 4, 6)) == date(2027, 3, 21)
+
+
+def test_one_time_event() -> None:
+    party = {"kind": "once", "start_date": "2026-11-14", "end_date": "2026-11-15"}
+    assert current_window(party, date(2026, 11, 14))
+    assert current_window(party, date(2027, 11, 14)) is None
+    assert next_start(party, date(2026, 10, 1)) == date(2026, 11, 14)
+    assert next_start(party, date(2026, 12, 1)) is None
+
+
+def test_calendar_holiday_wins_tonight() -> None:
+    holidays = [
+        {"id": "xmas", "kind": "yearly", "start": "12-01", "end": "12-26"},
+        {"id": "game", "kind": "calendar"},
+    ]
+    assert active_holiday(holidays, date(2026, 12, 5))["id"] == "xmas"
+    assert active_holiday(holidays, date(2026, 12, 5), {"game"})["id"] == "game"
+    assert upcoming_holiday(holidays, date(2026, 12, 30))[0]["id"] == "xmas"
+
+
+def test_effects() -> None:
+    lights = ["a", "b", "c"]
+    colors = ["R", "G"]
+    assert effect_assignments("static", lights, colors, 5) == {
+        "R": ["a", "c"],
+        "G": ["b"],
+    }
+    assert effect_assignments("cycle", lights, colors, 0) == {"R": lights}
+    assert effect_assignments("fade", lights, colors, 1) == {"G": lights}
+    twinkle = effect_assignments("twinkle", lights, colors, 0, random.Random(1))
+    assert sorted(sum(twinkle.values(), [])) == lights
+    assert set(twinkle) <= set(colors)
+    assert effect_assignments("rotate", lights, colors, 1) == {
+        "G": ["a", "c"],
+        "R": ["b"],
+    }
