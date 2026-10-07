@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/holiday_lighting/brand/icon@2x.png" alt="Holiday Lighting" width="160">
+</p>
+
 # Holiday Lighting
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
@@ -75,6 +79,10 @@ When holiday ranges overlap, the shorter one wins, so a specific holiday beats a
 | `holiday_lighting.start` | Turn on now, ignoring darkness. Optional `holiday` name. Off rules still apply. |
 | `holiday_lighting.stop` | Turn off and stay off for the rest of tonight. |
 | `holiday_lighting.advance` | Move the rotation forward one step. |
+
+## Icon
+
+The integration ships its own icon in `custom_components/holiday_lighting/brand/`, with light and dark versions. Home Assistant 2026.3 and newer shows it automatically; older versions show a generic icon.
 
 ## Development
 
