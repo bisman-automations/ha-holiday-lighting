@@ -1000,3 +1000,68 @@ def test_edit_form_shows_saved_schedule_override() -> None:
         "all_night": False,
         "off_time": "01:00:00",
     }
+
+
+async def _preset_options(hass: HomeAssistant, entry) -> list[str]:
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "holiday"), context={"source": config_entries.SOURCE_USER}
+    )
+    schema = voluptuous_serialize.convert(
+        result["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    hass.config_entries.subentries.async_abort(result["flow_id"])
+    return schema[0]["selector"]["select"]["options"]
+
+
+async def test_add_holiday_hides_presets_already_added(hass: HomeAssistant) -> None:
+    # "Christmas" was saved before holidays remembered their preset: matched by name.
+    entry = _entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    options = await _preset_options(hass, entry)
+    assert options[0] == "custom"
+    assert "christmas" not in options
+    assert "halloween" in options
+    assert len(options) == 1 + len(PRESETS) - 1
+
+    # Add Halloween from its preset, renamed: still hidden afterwards.
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "holiday"), context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"preset": "halloween"}
+    )
+    form = _frontend_initial(
+        voluptuous_serialize.convert(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], form | {"name": "Spooky Season"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done(wait_background_tasks=True)
+    sub = next(s for s in entry.subentries.values() if s.title == "Spooky Season")
+    assert sub.data["preset"] == "halloween"
+    assert "halloween" not in await _preset_options(hass, entry)
+
+    # Editing keeps the preset link.
+    result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
+    form = _frontend_initial(
+        voluptuous_serialize.convert(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], form | {"name": "Halloween Night"}
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.subentries[sub.subentry_id].data["preset"] == "halloween"
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    # Deleting a holiday makes its preset available again.
+    hass.config_entries.async_remove_subentry(entry, sub.subentry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "halloween" in await _preset_options(hass, entry)

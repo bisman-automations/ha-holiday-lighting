@@ -464,6 +464,7 @@ def _normalise_holiday(
 def _preset_data(key: str, lights: list[str]) -> dict[str, Any]:
     return {
         **PRESETS[key],
+        CONF_PRESET: key,
         CONF_LIGHTS: list(lights),
         CONF_MODE: MODE_ROTATE,
         CONF_INTERVAL: DEFAULT_INTERVAL,
@@ -586,6 +587,7 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
         """Initialise the flow."""
         self._prefill: dict[str, Any] = {}
         self._kind = KIND_YEARLY
+        self._preset: str | None = None
 
     def _taken_names(self, exclude: str | None = None) -> set[str]:
         entry = self._get_entry()
@@ -594,6 +596,23 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
             for subentry_id, subentry in entry.subentries.items()
             if subentry.subentry_type == SUBENTRY_HOLIDAY and subentry_id != exclude
         }
+
+    def _used_presets(self) -> set[str]:
+        """Presets that already have a holiday.
+
+        Holidays remember the preset they came from; ones added before that
+        was stored are matched by name.
+        """
+        by_name = {preset[CONF_NAME].casefold(): key for key, preset in PRESETS.items()}
+        used: set[str] = set()
+        for subentry in self._get_entry().subentries.values():
+            if subentry.subentry_type != SUBENTRY_HOLIDAY:
+                continue
+            if key := subentry.data.get(CONF_PRESET):
+                used.add(key)
+            elif key := by_name.get(subentry.title.casefold()):
+                used.add(key)
+        return used
 
     def _default_lights(self) -> list[str]:
         return list(self._get_entry().options.get(CONF_DEFAULT_LIGHTS, []))
@@ -604,18 +623,22 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
         """Start from a preset or from scratch."""
         if user_input is not None:
             preset = user_input[CONF_PRESET]
-            if preset == PRESET_CUSTOM:
+            if preset == PRESET_CUSTOM or preset not in PRESETS:
                 return await self.async_step_kind()
+            self._preset = preset
             self._prefill = _preset_data(preset, self._default_lights())
             self._kind = self._prefill[CONF_KIND]
             return await self.async_step_holiday()
 
+        used = self._used_presets()
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PRESET, default=PRESET_CUSTOM): _select(
-                        [PRESET_CUSTOM, *PRESETS], CONF_PRESET, dropdown=True
+                        [PRESET_CUSTOM, *(k for k in PRESETS if k not in used)],
+                        CONF_PRESET,
+                        dropdown=True,
                     )
                 }
             ),
@@ -660,6 +683,8 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
                 self._kind, user_input, self._taken_names()
             )
             if not errors:
+                if self._preset:
+                    data[CONF_PRESET] = self._preset
                 return self.async_create_entry(title=data[CONF_NAME], data=data)
 
         return self.async_show_form(
@@ -680,6 +705,8 @@ class HolidaySubentryFlow(ConfigSubentryFlow):
                 kind, user_input, self._taken_names(exclude=subentry.subentry_id)
             )
             if not errors:
+                if preset := subentry.data.get(CONF_PRESET):
+                    data[CONF_PRESET] = preset
                 return self.async_update_and_abort(
                     self._get_entry(), subentry, title=data[CONF_NAME], data=data
                 )

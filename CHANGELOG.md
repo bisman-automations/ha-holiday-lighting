@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-07
+
+### Changed
+
+- **Add holiday** only lists presets you haven't added yet. A holiday made from a preset stays linked to it even if you rename it; deleting it makes the preset available again.
+
 ## [1.4.0] - 2026-10-07
 
 ### Added
@@ -94,7 +100,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.2.0...v1.3.0
