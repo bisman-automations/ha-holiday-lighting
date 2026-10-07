@@ -59,6 +59,7 @@ class StatusSensor(HolidayLightingEntity, SensorEntity):
         controller = self.controller
         return {
             "dark": controller.is_dark(),
+            "sun_elevation": round(controller.current_sun_elevation(), 2),
             "lights_on_at": controller.on_at,
             "hard_off_tonight": controller.hard_off_tonight(),
             "manually_changed": sorted(controller.night.overridden),

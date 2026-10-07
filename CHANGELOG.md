@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-06
+
+### Added
+
+- **Sun elevation source.** Dark detection can read the sun's elevation from the Sun integration (`sun.sun`) or any sensor reporting degrees, instead of calculating it. If the entity is unavailable, it falls back to the calculation.
+- The Status sensor and diagnostics show the current sun elevation.
+
 ## [1.2.0] - 2026-10-06
 
 ### Added
@@ -71,7 +78,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bisman-automations/ha-holiday-lighting/releases/tag/v1.0.0

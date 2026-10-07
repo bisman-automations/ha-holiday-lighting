@@ -58,6 +58,7 @@ DEFAULT_TRANSITION: Final = 2
 CONF_USE_SCHEDULE: Final = "use_schedule"
 CONF_DARK_SOURCE: Final = "dark_source"
 CONF_SUN_ELEVATION: Final = "sun_elevation"
+CONF_SUN_SOURCE: Final = "sun_source"
 CONF_LUX_SENSOR: Final = "lux_sensor"
 CONF_LUX_THRESHOLD: Final = "lux_threshold"
 CONF_ON_DURATION: Final = "on_duration"

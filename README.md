@@ -39,6 +39,7 @@ Copy `custom_components/holiday_lighting` into your `config/custom_components` f
 | Use nightly schedule | Off: lights run whenever the **Enabled** switch is on. |
 | Dark detection | Sun elevation, illuminance sensor, or either. |
 | Sun elevation threshold | Dark when the sun is below this angle (default −2°, just after sunset; civil dusk is −6°). |
+| Sun elevation source | Optional. Read the elevation from the Sun integration (`sun.sun`) or any sensor reporting degrees. Empty calculates it from your home location. If the entity is unavailable, the calculation is used instead. |
 | Illuminance sensor / threshold | Dark when the sensor reads below the threshold. |
 | Stay on for | How long after turning on the lights stay on (default 5 hours). |
 | Hard off time | Lights turn off at this time even if the duration hasn't passed (default 11:00 PM). A time before noon means after midnight, e.g. 1:00 AM. |

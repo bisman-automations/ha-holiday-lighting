@@ -863,3 +863,64 @@ async def test_missed_off_time_does_not_skip_tonight(
         assert _state(hass, "status") == "on"
         off_at = dt_util.parse_datetime(_state(hass, "lights_off_at"))
         assert off_at == datetime(2026, 12, 11, 23, 0, tzinfo=tz)
+
+
+async def test_sun_elevation_source(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Dark detection can read the Sun integration or any elevation sensor."""
+    freezer.move_to(datetime(2026, 12, 10, 12, 0, tzinfo=tz))  # midday
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26"),
+        sun_source="sun.sun",
+    )
+    await _start(hass, entry)
+    controller = entry.runtime_data
+    calculated = controller.current_sun_elevation()  # no entity yet: fallback
+    assert calculated > 0
+
+    # The Sun integration's entity: read from its elevation attribute.
+    hass.states.async_set("sun.sun", "below_horizon", {"elevation": -38.16})
+    assert controller.current_sun_elevation() == -38.16
+    assert controller.is_dark()
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 12.5})
+    assert not controller.is_dark()
+
+    # Unavailable: falls back to the calculation.
+    hass.states.async_set("sun.sun", "unavailable", {})
+    assert controller.current_sun_elevation() == pytest.approx(calculated)
+
+    # Any sensor reporting degrees.
+    controller.sun_source = "sensor.sun_solar_elevation"
+    hass.states.async_set("sensor.sun_solar_elevation", "-3.4")
+    assert controller.current_sun_elevation() == -3.4
+    assert controller.is_dark()  # below the -2° default
+    hass.states.async_set("sensor.sun_solar_elevation", "-1.0")
+    assert not controller.is_dark()
+    hass.states.async_set("sensor.sun_solar_elevation", "unknown")
+    assert controller.current_sun_elevation() == pytest.approx(calculated)
+
+    diagnostics = controller.diagnostics()
+    assert diagnostics["sun_source"] == "sensor.sun_solar_elevation"
+    assert diagnostics["sun_source_ok"] is False
+
+
+async def test_options_flow_offers_sun_source(hass: HomeAssistant) -> None:
+    entry = _entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    fields = {
+        f["name"]: f
+        for f in voluptuous_serialize.convert(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    assert fields["sun_source"]["selector"]["entity"]["domain"] == ["sun", "sensor"]
+    options = dict(entry.options) | {"sun_source": "sun.sun"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], options
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["sun_source"] == "sun.sun"

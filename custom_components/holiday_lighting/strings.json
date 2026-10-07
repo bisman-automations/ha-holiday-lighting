@@ -24,7 +24,8 @@
           "on_duration": "Stay on for",
           "off_time": "Hard off time",
           "weekend_off_time": "Weekend hard off time",
-          "respect_manual": "Respect manual changes"
+          "respect_manual": "Respect manual changes",
+          "sun_source": "Sun elevation source"
         },
         "data_description": {
           "use_schedule": "When off, the lights run whenever the Enabled switch is on.",
@@ -35,7 +36,8 @@
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
           "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
-          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night."
+          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night.",
+          "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable."
         }
       }
     },
@@ -61,7 +63,8 @@
           "on_duration": "Stay on for",
           "off_time": "Hard off time",
           "weekend_off_time": "Weekend hard off time",
-          "respect_manual": "Respect manual changes"
+          "respect_manual": "Respect manual changes",
+          "sun_source": "Sun elevation source"
         },
         "data_description": {
           "default_lights": "Used for new holidays and for holidays with no lights selected. Drag to reorder.",
@@ -73,7 +76,8 @@
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
           "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
-          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night."
+          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night.",
+          "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable."
         }
       }
     },
@@ -329,6 +333,9 @@
           },
           "manually_changed": {
             "name": "Manually changed"
+          },
+          "sun_elevation": {
+            "name": "Sun elevation"
           }
         }
       },

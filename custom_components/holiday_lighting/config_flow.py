@@ -65,6 +65,7 @@ from .const import (
     CONF_START,
     CONF_START_DATE,
     CONF_SUN_ELEVATION,
+    CONF_SUN_SOURCE,
     CONF_TRANSITION,
     CONF_USE_SCHEDULE,
     CONF_WEEK,
@@ -177,6 +178,9 @@ def _schedule_schema(values: dict[str, Any]) -> vol.Schema:
                     mode=NumberSelectorMode.BOX,
                 )
             ),
+            vol.Optional(
+                CONF_SUN_SOURCE, description=_suggested(values, CONF_SUN_SOURCE)
+            ): EntitySelector(EntitySelectorConfig(domain=["sun", "sensor"])),
             vol.Optional(
                 CONF_LUX_SENSOR, description=_suggested(values, CONF_LUX_SENSOR)
             ): EntitySelector(

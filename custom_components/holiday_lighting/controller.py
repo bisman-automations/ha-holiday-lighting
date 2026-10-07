@@ -69,6 +69,7 @@ from .const import (
     CONF_ON_DURATION,
     CONF_RESPECT_MANUAL,
     CONF_SUN_ELEVATION,
+    CONF_SUN_SOURCE,
     CONF_TRANSITION,
     CONF_USE_SCHEDULE,
     CONF_WEEKEND_OFF_TIME,
@@ -243,6 +244,7 @@ class HolidayLightingController:
         self.sun_elevation: float = float(
             options.get(CONF_SUN_ELEVATION, DEFAULT_SUN_ELEVATION)
         )
+        self.sun_source: str | None = options.get(CONF_SUN_SOURCE) or None
         self.lux_sensor: str | None = options.get(CONF_LUX_SENSOR)
         self.lux_threshold: float = float(
             options.get(CONF_LUX_THRESHOLD, DEFAULT_LUX_THRESHOLD)
@@ -434,10 +436,7 @@ class HolidayLightingController:
         """Whether it is dark enough to start the lights."""
         sun_dark = lux_dark = False
         if self.dark_source in (DARK_SUN, DARK_EITHER):
-            location, elevation = get_astral_location(self.hass)
-            sun_dark = (
-                location.solar_elevation(dt_util.now(), elevation) < self.sun_elevation
-            )
+            sun_dark = self.current_sun_elevation() < self.sun_elevation
         if self.dark_source in (DARK_LUX, DARK_EITHER) and self.lux_sensor:
             state = self.hass.states.get(self.lux_sensor)
             if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -446,6 +445,32 @@ class HolidayLightingController:
                 except ValueError:
                     lux_dark = False
         return sun_dark or lux_dark
+
+    def sun_elevation_from_source(self) -> float | None:
+        """Elevation from the chosen entity, or None if unset or unavailable.
+
+        A `sun` entity (the Sun integration's sun.sun) is read from its
+        elevation attribute; any other entity from its numeric state.
+        """
+        if not self.sun_source:
+            return None
+        state = self.hass.states.get(self.sun_source)
+        if state is None:
+            return None
+        raw = (
+            state.attributes.get("elevation") if state.domain == "sun" else state.state
+        )
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def current_sun_elevation(self) -> float:
+        """Sun elevation now: the chosen entity, else calculated locally."""
+        if (from_source := self.sun_elevation_from_source()) is not None:
+            return from_source
+        location, elevation = get_astral_location(self.hass)
+        return location.solar_elevation(dt_util.now(), elevation)
 
     def hard_off_tonight(self) -> datetime | None:
         """Tonight's hard off time, for display."""
@@ -469,6 +494,9 @@ class HolidayLightingController:
             "done_night": self.done_night.isoformat() if self.done_night else None,
             "offset": self.offset,
             "dark": self.is_dark(),
+            "sun_elevation": round(self.current_sun_elevation(), 2),
+            "sun_source": self.sun_source,
+            "sun_source_ok": self.sun_elevation_from_source() is not None,
             "calendar_active": sorted(
                 self.holidays[i].name
                 for i in self._calendar_active
