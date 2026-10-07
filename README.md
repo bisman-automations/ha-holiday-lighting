@@ -19,6 +19,10 @@ Home Assistant integration to create holiday color themes and rotate them across
 
 ### HACS
 
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-holiday-lighting&category=integration)
+
+Or add it by hand:
+
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/bisman-automations/ha-holiday-lighting` as an **Integration**.
 3. Install **Holiday Lighting** and restart Home Assistant.
@@ -29,7 +33,9 @@ Copy `custom_components/holiday_lighting` into your `config/custom_components` f
 
 ## Setup
 
-**Settings → Devices & services → Add integration → Holiday Lighting**
+[![Open your Home Assistant instance and start setting up Holiday Lighting.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=holiday_lighting)
+
+Or go to **Settings → Devices & services → Add integration → Holiday Lighting**.
 
 1. **Default lights and starter holidays.** Pick the lights to use, in order, and any presets to add.
 2. **Nightly schedule.**
