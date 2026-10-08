@@ -59,3 +59,7 @@ cards:
           perform_action: button.press
           target:
             entity_id: button.holiday_lighting_turn_off_for_tonight
+  - type: calendar
+    entities:
+      - calendar.holiday_lighting_schedule
+    initial_view: listWeek

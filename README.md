@@ -14,6 +14,7 @@ Home Assistant integration to create holiday color themes and rotate them across
 - **Runs itself every night.** Lights come on when it gets dark (sun elevation, an illuminance sensor, or either), stay on for a set time, and turn off at a hard off time, whichever comes first. Holidays can set their own schedule, and Friday and Saturday can have a later off time.
 - **Plays nice.** If someone changes a light by hand, it's left alone for the rest of the night. Turning holiday lighting off restores each light's previous state.
 - **Default colors for every other night.** Pick colors (like white) to show on nights with no holiday, on the same schedule.
+- **A schedule calendar.** See what will light up on any night in Home Assistant's Calendar.
 - **See every light.** A sensor for each light shows the color it's displaying right now.
 - **Works with any light.** Color bulbs show the colors; white and color-temperature bulbs follow along with matching brightness or warm and cool whites.
 - **Tells you when something's wrong.** Repairs flag lights that have gone unavailable.
@@ -104,6 +105,7 @@ Every holiday also has:
 | `sensor.holiday_lighting_active_holiday` | Showing now, with colors, lights, and the next holiday as attributes. |
 | `sensor.holiday_lighting_lights_off_at` | When tonight's lights turn off. |
 | `sensor.holiday_lighting_<light>_color` | One per light: the color it's showing now (e.g. `Orange`), `Off`, or `Manual` if changed by hand. Attributes: hex, RGB, how it's shown, and the holiday. |
+| `calendar.holiday_lighting_schedule` | What each night will show. See [Schedule calendar](#schedule-calendar). |
 | `button.holiday_lighting_turn_on_now` | Turn on now, ignoring darkness. Off rules still apply. |
 | `button.holiday_lighting_next_colors` | Move the colors forward one step. |
 | `button.holiday_lighting_turn_off_for_tonight` | Turn off and stay off for the rest of tonight. |
@@ -115,6 +117,12 @@ Every holiday also has:
 | `holiday_lighting.start` | Turn on now, ignoring darkness. Optional `holiday` name. Off rules still apply. |
 | `holiday_lighting.stop` | Turn off and stay off for the rest of tonight. |
 | `holiday_lighting.advance` | Move the rotation forward one step. |
+
+## Schedule calendar
+
+`calendar.holiday_lighting_schedule` shows what will light up each night, using the same rules that pick the lights, so overlaps are already resolved. For example, Advent runs through Christmas Eve, broken up by Immaculate Conception and Gaudete Sunday. Each event's details list the colors, effect, off time, and number of lights. Nights with no holiday show **Default colors** if you've set them, or nothing if not.
+
+Find it in the **Calendar** panel in the sidebar, or add a Calendar card to a dashboard. Calendar holidays only appear for tonight, since they depend on events that are checked each evening. A theme picked with the Theme select isn't shown; the calendar shows the automatic schedule.
 
 ## Default colors
 

@@ -430,6 +430,11 @@
       "next": {
         "name": "Next colors"
       }
+    },
+    "calendar": {
+      "schedule": {
+        "name": "Schedule"
+      }
     }
   },
   "exceptions": {

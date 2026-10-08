@@ -472,6 +472,25 @@ class HolidayLightingController:
             return self.weekend_off_time
         return self.off_time
 
+    def planned_for(self, day: date) -> Holiday | None:
+        """What the lights will show on the night of `day`.
+
+        Calendar holidays depend on calendar events, which are only checked
+        for tonight, so other nights show what the dates alone pick.
+        """
+        tonight = night_of(dt_util.now())
+        holidays = [
+            h.as_mapping()
+            for h in self.holidays.values()
+            if h.kind != KIND_CALENDAR or day == tonight
+        ]
+        found = active_holiday(
+            holidays, day, self._calendar_active if day == tonight else ()
+        )
+        if found:
+            return self.holidays[found["id"]]
+        return self.default_holiday
+
     def duration_for(self, holiday: Holiday | None) -> timedelta | None:
         """How long lights stay on for a holiday."""
         if holiday is not None:

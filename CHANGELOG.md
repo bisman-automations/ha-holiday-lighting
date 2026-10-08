@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-07
+
+### Added
+
+- **Schedule calendar** (`calendar.holiday_lighting_schedule`). It shows what will light up each night in Home Assistant's Calendar, with overlaps already resolved and the colors, effect, off time, and number of lights in each event. Nights with no holiday show the default colors, if set.
+- The example dashboard card includes a week view of the schedule.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added
@@ -133,7 +140,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...v1.4.1

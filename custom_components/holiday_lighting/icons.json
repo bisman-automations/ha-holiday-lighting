@@ -37,6 +37,11 @@
       "next": {
         "default": "mdi:skip-next"
       }
+    },
+    "calendar": {
+      "schedule": {
+        "default": "mdi:calendar-star"
+      }
     }
   },
   "services": {

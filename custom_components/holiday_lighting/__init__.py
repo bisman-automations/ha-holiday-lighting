@@ -22,6 +22,7 @@ from .controller import HolidayLightingController
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
+    Platform.CALENDAR,
     Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,

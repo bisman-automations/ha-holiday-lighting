@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
+from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -596,6 +597,8 @@ async def test_calendar_event_tonight(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
 ) -> None:
     freezer.move_to(datetime(2026, 12, 5, 17, 0, tzinfo=tz))
+    # Load the real calendar component first so it doesn't replace the mock.
+    await async_setup_component(hass, "calendar", {})
     calls = async_mock_service(
         hass,
         "calendar",
@@ -637,6 +640,8 @@ async def test_calendar_keyword_no_match_falls_back(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
 ) -> None:
     freezer.move_to(datetime(2026, 12, 5, 17, 0, tzinfo=tz))
+    # Load the real calendar component first so it doesn't replace the mock.
+    await async_setup_component(hass, "calendar", {})
     async_mock_service(
         hass,
         "calendar",
@@ -1474,3 +1479,88 @@ async def test_default_colors_when_no_holiday(
     with patch(DARK, return_value=True):  # evening
         await _tick(hass, freezer, datetime(2026, 10, 7, 20, 0, tzinfo=tz))
         assert _state(hass, "active_holiday") == "Halloween"
+
+
+async def test_schedule_calendar(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """The calendar shows what each night will display, overlaps resolved."""
+    from custom_components.holiday_lighting.presets import PRESETS
+
+    freezer.move_to(datetime(2026, 10, 7, 12, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+
+    def preset(key, **extra):
+        data = {k: v for k, v in PRESETS[key].items()} | extra
+        return _holiday(data["name"], **data)
+
+    entry = _entry_with(
+        preset("halloween"),
+        preset("all_saints"),
+        preset("all_souls"),
+        preset("veterans_day"),
+        preset("thanksgiving", days_before=5, days_after=2),
+        preset("christ_the_king"),
+        preset("advent"),
+        preset("gaudete_sunday"),
+        preset("immaculate_conception"),
+        preset("guadalupe"),
+        preset("christmas"),
+        default_colors=["#FFFFFF"],
+        default_color_names=["White"],
+    )
+    await _start(hass, entry)
+    state = hass.states.get("calendar.holiday_lighting_schedule")
+    assert state.state == "on"  # an all-day event covers today
+    assert state.attributes["message"] == "Halloween"
+
+    response = await hass.services.async_call(
+        "calendar",
+        "get_events",
+        {
+            "entity_id": "calendar.holiday_lighting_schedule",
+            "start_date_time": "2026-10-25T00:00:00",
+            "end_date_time": "2027-01-01T00:00:00",
+        },
+        blocking=True,
+        return_response=True,
+    )
+    events = response["calendar.holiday_lighting_schedule"]["events"]
+    got = [(e["summary"], e["start"], e["end"]) for e in events]
+    assert got == [
+        ("Halloween", "2026-10-01", "2026-11-01"),
+        ("All Saints' Day", "2026-11-01", "2026-11-02"),
+        ("All Souls' Day", "2026-11-02", "2026-11-03"),
+        ("Default colors", "2026-11-03", "2026-11-08"),
+        ("Veterans Day", "2026-11-08", "2026-11-12"),
+        ("Default colors", "2026-11-12", "2026-11-21"),
+        ("Thanksgiving", "2026-11-21", "2026-11-22"),
+        ("Christ the King", "2026-11-22", "2026-11-23"),
+        ("Thanksgiving", "2026-11-23", "2026-11-29"),
+        ("Advent", "2026-11-29", "2026-12-08"),
+        ("Immaculate Conception", "2026-12-08", "2026-12-09"),
+        ("Advent", "2026-12-09", "2026-12-12"),
+        ("Our Lady of Guadalupe", "2026-12-12", "2026-12-13"),
+        ("Gaudete Sunday", "2026-12-13", "2026-12-14"),
+        ("Advent", "2026-12-14", "2026-12-25"),
+        ("Christmas", "2026-12-25", "2026-12-27"),
+        ("Default colors", "2026-12-27", "2027-01-01"),
+    ]
+    advent = next(e for e in events if e["summary"] == "Advent")
+    assert "Colors: Purple, Purple, Purple, Rose" in advent["description"]
+    assert "Effect: Chase, every 30s" in advent["description"]
+    assert "Off at 11:00 PM" in advent["description"]
+
+
+async def test_schedule_calendar_without_default(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    freezer.move_to(datetime(2026, 8, 1, 12, 0, tzinfo=tz))
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    await _start(hass, entry)
+    state = hass.states.get("calendar.holiday_lighting_schedule")
+    assert state.state == "off"
+    assert state.attributes["message"] == "Halloween"  # the next event
+    assert state.attributes["start_time"].startswith("2026-10-01")
