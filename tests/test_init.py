@@ -736,6 +736,7 @@ async def test_cycle_and_fade_effects(
 async def test_manual_change_is_left_alone(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
 ) -> None:
+    """Only light commands from something else count as a manual change."""
     freezer.move_to(datetime(2026, 12, 5, 18, 0, tzinfo=tz))
     for light in LIGHTS:
         hass.states.async_set(light, "off")
@@ -746,30 +747,32 @@ async def test_manual_change_is_left_alone(
     )
     with patch(DARK, return_value=True):
         await _start(hass, entry)
-        # Our own update (our context) is not a manual change.
         controller = entry.runtime_data
-        hass.states.async_set(
-            "light.tree",
-            "on",
-            {"rgb_color": (0, 255, 0)},
-            context=Context(id=controller._our_contexts[-1]),
-        )
-        hass.states.async_set(
-            "light.porch",
-            "on",
-            {"rgb_color": (255, 0, 0)},
-            context=Context(id=controller._our_contexts[-1]),
-        )
-        await hass.async_block_till_done(wait_background_tasks=True)
-        # Someone turns the porch light off by hand.
-        hass.states.async_set("light.porch", "off", context=Context())
-        await hass.async_block_till_done(wait_background_tasks=True)
-        # Someone sets the garage light to a warm white well after our command.
+        # A slow light reporting an older color is not a manual change:
+        # reported colors are no longer compared.
         freezer.tick(timedelta(seconds=15))
         hass.states.async_set(
-            "light.garage", "on", {"rgb_color": (255, 180, 100)}, context=Context()
+            "light.tree", "on", {"rgb_color": (255, 180, 100)}, context=Context()
         )
         await hass.async_block_till_done(wait_background_tasks=True)
+        assert controller.night.overridden == set()
+
+        # Someone turns the porch light off from the app.
+        await hass.services.async_call(
+            "light",
+            "turn_off",
+            {"entity_id": "light.porch"},
+            blocking=True,
+            context=Context(user_id="abc"),
+        )
+        # An automation sets the garage light to warm white.
+        await hass.services.async_call(
+            "light",
+            "turn_on",
+            {"entity_id": "light.garage", "color_temp_kelvin": 2700},
+            blocking=True,
+            context=Context(),
+        )
         status = hass.states.get("sensor.holiday_lighting_status")
         assert status.attributes["manually_changed"] == ["light.garage", "light.porch"]
 
@@ -780,7 +783,7 @@ async def test_manual_change_is_left_alone(
         touched = {e for c in turn_on for e in c.data["entity_id"]}
         assert touched == {"light.tree"}
 
-        # End of night: only the light we still control is turned off.
+        # End of night (schedule): only the light we still control turns off.
         await _tick(hass, freezer, datetime(2026, 12, 5, 23, 1, tzinfo=tz))
         assert turn_off[-1].data["entity_id"] == ["light.tree"]
 
@@ -789,6 +792,73 @@ async def test_manual_change_is_left_alone(
         await _tick(hass, freezer, datetime(2026, 12, 6, 18, 0, tzinfo=tz))
         touched = {e for c in turn_on for e in c.data["entity_id"]}
         assert touched == set(LIGHTS)
+
+
+async def test_turn_off_button_includes_manual_lights(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Regression: "Turn off for tonight" left lights marked manual on."""
+    freezer.move_to(datetime(2026, 10, 7, 22, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+    turn_off = async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        await hass.services.async_call(
+            "light",
+            "turn_on",
+            {"entity_id": ["light.tree", "light.garage"], "rgb_color": [255, 255, 255]},
+            blocking=True,
+            context=Context(user_id="abc"),
+        )
+        assert entry.runtime_data.night.overridden == {"light.tree", "light.garage"}
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_turn_off_for_tonight"},
+            blocking=True,
+        )
+    assert sorted(turn_off[-1].data["entity_id"]) == sorted(LIGHTS)
+    assert _state(hass, "status") == "done_for_tonight"
+
+
+async def test_late_command_cannot_turn_lights_back_on(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Regression: a slow color step landed after "turn off" and lit a bulb."""
+    freezer.move_to(datetime(2026, 10, 7, 22, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+    turn_off = async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        controller = entry.runtime_data
+        step_context = controller._our_contexts[-1]  # a color step's command
+        await controller.async_force_off()
+        turn_off.clear()
+
+        # The slow bulb finally applies that old step: it turns back on.
+        hass.states.async_set("light.porch", "on", context=Context(id=step_context))
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert [c.data["entity_id"] for c in turn_off] == ["light.porch"]
+
+        # Someone turning a light on themselves is left alone.
+        turn_off.clear()
+        hass.states.async_set("light.tree", "on", context=Context(user_id="abc"))
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert turn_off == []
+
+        # After a minute the guard stops.
+        freezer.tick(timedelta(seconds=61))
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        hass.states.async_set("light.garage", "on", context=Context(id=step_context))
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert turn_off == []
 
 
 async def test_manual_detection_can_be_turned_off(
@@ -895,8 +965,8 @@ async def test_white_and_color_temp_lights(
     attrs = hass.states.get("sensor.holiday_lighting_active_holiday").attributes
     assert attrs["white_lights"] == ["light.tree", "light.garage"]
 
-    # The tree reports its color temperature (and an rgb_color derived from it,
-    # far from blue): that is not a manual change.
+    # The tree reports its color temperature (and an rgb_color derived from
+    # it, far from blue): reports are not manual changes.
     freezer.tick(timedelta(seconds=15))
     hass.states.async_set(
         "light.tree",
@@ -910,14 +980,14 @@ async def test_white_and_color_temp_lights(
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert entry.runtime_data.night.overridden == set()
-    # Someone sets it to warm white by hand: that is.
-    hass.states.async_set(
-        "light.tree",
-        "on",
-        {"supported_color_modes": ["color_temp"], "color_temp_kelvin": 2700},
-        context=Context(),
+    # Someone sets it to warm white from the app: that is.
+    await hass.services.async_call(
+        "light",
+        "turn_on",
+        {"entity_id": "light.tree", "color_temp_kelvin": 2700},
+        blocking=True,
+        context=Context(user_id="abc"),
     )
-    await hass.async_block_till_done(wait_background_tasks=True)
     assert entry.runtime_data.night.overridden == {"light.tree"}
 
 
@@ -1370,20 +1440,14 @@ async def test_light_color_sensors(
         assert hass.states.get(porch).state == "Green"
         assert hass.states.get(tree).state == "Orange"
 
-        # The tree reports it is on (our command)...
-        hass.states.async_set(
-            "light.tree",
-            "on",
-            {"supported_color_modes": ["hs"]},
-            context=Context(id=entry.runtime_data._our_contexts[-1]),
+        # Someone turns the tree off from the app.
+        await hass.services.async_call(
+            "light",
+            "turn_off",
+            {"entity_id": "light.tree"},
+            blocking=True,
+            context=Context(user_id="abc"),
         )
-        await hass.async_block_till_done(wait_background_tasks=True)
-        assert hass.states.get(tree).state == "Orange"
-        # ...then someone turns it off by hand.
-        hass.states.async_set(
-            "light.tree", "off", {"supported_color_modes": ["hs"]}, context=Context()
-        )
-        await hass.async_block_till_done(wait_background_tasks=True)
         assert hass.states.get(tree).state == "Manual"
 
         await hass.services.async_call(

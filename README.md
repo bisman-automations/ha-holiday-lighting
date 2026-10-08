@@ -12,7 +12,7 @@ Home Assistant integration to create holiday color themes and rotate them across
 - **Any holiday or event.** Same dates every year, a weekday rule like "4th Thursday of November", days around Easter, a one-time event, or whenever a calendar has a matching event (game days!). Start from presets or build your own.
 - **Effects.** Chase colors down your lights, cycle or fade the whole house through them together, twinkle randomly, or hold them static.
 - **Runs itself every night.** Lights come on when it gets dark (sun elevation, an illuminance sensor, or either), stay on for a set time, and turn off at a hard off time, whichever comes first. Holidays can set their own schedule, and Friday and Saturday can have a later off time.
-- **Plays nice.** If someone changes a light by hand, it's left alone for the rest of the night. Turning holiday lighting off restores each light's previous state.
+- **Plays nice.** If someone changes a light from the app, an automation, a remote, or a voice assistant, it's left alone for the rest of the night. Turning holiday lighting off restores each light's previous state.
 - **Default colors for every other night.** Pick colors (like white) to show on nights with no holiday, on the same schedule.
 - **A schedule calendar.** See what will light up on any night in Home Assistant's Calendar.
 - **See every light.** A sensor for each light shows the color it's displaying right now.
@@ -54,7 +54,7 @@ Or go to **Settings → Devices & services → Add integration → Holiday Light
 | Stay on for | How long after turning on the lights stay on (default 5 hours). |
 | Hard off time | Lights turn off at this time even if the duration hasn't passed (default 11:00 PM). A time before noon means after midnight, e.g. 1:00 AM. |
 | Weekend hard off time | Optional later off time for Friday and Saturday nights. |
-| Respect manual changes | On (default): a light changed by hand is left alone until tomorrow. |
+| Respect manual changes | On (default): a light someone changes through Home Assistant (the app, an automation, a remote, a voice assistant) is left alone until tomorrow. Changes made outside Home Assistant, like a bulb's own app, aren't detected. **Turn off for tonight** still turns off every holiday light. |
 
 The lights turn off at whichever comes first, the duration or the hard off time, and stay off until the next evening. Darkness only *starts* the lights, so your own lights brightening a lux sensor won't turn them off early. With neither limit set, they turn off when it's light again.
 

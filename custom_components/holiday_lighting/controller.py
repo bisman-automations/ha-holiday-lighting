@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 import random
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -31,20 +30,32 @@ from homeassistant.components.light import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    ATTR_DOMAIN,
     ATTR_ENTITY_ID,
+    ATTR_SERVICE,
+    ATTR_SERVICE_DATA,
+    EVENT_CALL_SERVICE,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
-    STATE_OFF,
     STATE_ON,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import CALLBACK_TYPE, Context, Event, HomeAssistant, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Context,
+    Event,
+    HomeAssistant,
+    ServiceCall,
+    callback,
+)
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
+    async_call_later,
     async_track_state_change_event,
     async_track_time_interval,
 )
+from homeassistant.helpers.service import async_extract_referenced_entity_ids
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.sun import get_astral_location
 from homeassistant.util import dt as dt_util
@@ -118,12 +129,8 @@ _LOGGER = logging.getLogger(__name__)
 
 EVALUATE_INTERVAL = timedelta(minutes=1)
 CALENDAR_REFRESH = timedelta(minutes=15)
-# After we command a light, ignore color reports for this long (fades, slow
-# devices) before treating a different color as a manual change.
-MANUAL_GRACE = timedelta(seconds=10)
-# Euclidean RGB distance beyond which a reported color is "different".
-MANUAL_COLOR_DISTANCE = 80
-MANUAL_KELVIN_DISTANCE = 500
+# After turning the lights off, undo our own late "on" commands this long.
+OFF_GUARD_SECONDS = 60
 LIGHT_COMMAND_TIMEOUT = 15  # seconds
 DEFAULT_HOLIDAY_NAME = "Default colors"
 # Evaluations a light must stay unavailable before a repair is raised.
@@ -206,8 +213,12 @@ def _shown_as(command: dict[str, Any]) -> str:
     return "on"
 
 
-def _color_distance(a: list[int] | tuple[int, ...], b: list[int]) -> float:
-    return math.dist(list(a)[:3], b[:3])
+@callback
+def _is_light_command(event_data: Mapping[str, Any]) -> bool:
+    """A light on/off/toggle service call (light.* or homeassistant.*)."""
+    return event_data.get(ATTR_DOMAIN) in (LIGHT_DOMAIN, "homeassistant") and (
+        event_data.get(ATTR_SERVICE) in (SERVICE_TURN_ON, SERVICE_TURN_OFF, "toggle")
+    )
 
 
 class HolidayLightingController:
@@ -224,6 +235,8 @@ class HolidayLightingController:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._rotation_unsub: CALLBACK_TYPE | None = None
         self._light_watch_unsub: CALLBACK_TYPE | None = None
+        self._guard_unsub: Callable[[], None] | None = None
+        self._step_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
         self._rng = random.Random()
 
@@ -359,6 +372,7 @@ class HolidayLightingController:
         """Stop timers. Lights are left as they are; state is saved."""
         self._stop_rotation()
         self._stop_watching_lights()
+        self._stop_guard()
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -443,9 +457,12 @@ class HolidayLightingController:
         self._notify()
 
     async def async_force_off(self) -> None:
-        """Turn lights off and treat tonight as done."""
+        """Turn every holiday light off and treat tonight as done."""
+        # Don't wait for a color step stuck on slow lights.
+        if self._step_task is not None and not self._step_task.done():
+            self._step_task.cancel()
         async with self._lock:
-            await self._async_end_night(dt_util.now())
+            await self._async_end_night(dt_util.now(), include_manual=True)
             self.status = STATUS_DONE if self.enabled else STATUS_DISABLED
             await self._async_save()
         self._notify()
@@ -768,11 +785,62 @@ class HolidayLightingController:
             # Skip this step rather than letting steps pile up.
             self.skipped_steps += 1
             return
-        async with self._lock:
-            if self.running is None:
+        self._step_task = asyncio.current_task()
+        try:
+            async with self._lock:
+                if self.running is None:
+                    return
+                self.offset += 1
+                await self._async_apply(self.running)
+        finally:
+            self._step_task = None
+
+    def _guard_off(self, lights: list[str], off_context: Context) -> None:
+        """For a minute, undo our own late "on" commands after turning off.
+
+        A color step that timed out can still reach a slow light after the
+        lights were turned off. That state change carries one of our
+        contexts, so turn the light back off. Anything else turning a light
+        on (a person, an automation) is left alone.
+        """
+        self._stop_guard()
+
+        async def _late_on(event: Event) -> None:
+            new_state = event.data.get("new_state")
+            if (
+                new_state is None
+                or new_state.state != STATE_ON
+                or new_state.context.id not in self._our_contexts
+                or new_state.context.id == off_context.id
+            ):
                 return
-            self.offset += 1
-            await self._async_apply(self.running)
+            _LOGGER.debug(
+                "A late command turned %s back on; turning it off",
+                event.data["entity_id"],
+            )
+            await self.hass.services.async_call(
+                LIGHT_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: event.data["entity_id"]},
+                blocking=False,
+                context=off_context,
+            )
+
+        unsub_state = async_track_state_change_event(self.hass, lights, _late_on)
+        unsub_timer = async_call_later(
+            self.hass, OFF_GUARD_SECONDS, lambda _now: self._stop_guard()
+        )
+
+        def stop() -> None:
+            unsub_state()
+            unsub_timer()
+
+        self._guard_unsub = stop
+
+    def _stop_guard(self) -> None:
+        if self._guard_unsub is not None:
+            self._guard_unsub()
+            self._guard_unsub = None
 
     def _stop_rotation(self) -> None:
         if self._rotation_unsub:
@@ -892,15 +960,29 @@ class HolidayLightingController:
         )
         return key, expected
 
-    async def _async_end_night(self, now: datetime) -> None:
-        """Schedule finished: turn lights off and wait for tomorrow."""
+    async def _async_end_night(
+        self, now: datetime, *, include_manual: bool = False
+    ) -> None:
+        """Schedule finished: turn lights off and wait for tomorrow.
+
+        The schedule leaves lights someone changed by hand alone; the
+        "Turn off for tonight" button turns off every holiday light.
+        """
         self._stop_rotation()
         self._stop_watching_lights()
         lights = list(self._snapshot)
         if self.running:
-            lights.extend(e for e in self._controlled(self.running) if e not in lights)
-        lights = [e for e in lights if e not in self.night.overridden]
+            pool = (
+                self.running.lights
+                if include_manual
+                else self._controlled(self.running)
+            )
+            lights.extend(e for e in pool if e not in lights)
+        if not include_manual:
+            lights = [e for e in lights if e not in self.night.overridden]
         if lights:
+            off_context = self._context()
+            self._guard_off(lights, off_context)
             data: dict[str, Any] = {ATTR_ENTITY_ID: lights}
             if self.running and self.running.transition:
                 data[ATTR_TRANSITION] = self.running.transition
@@ -911,7 +993,7 @@ class HolidayLightingController:
                         SERVICE_TURN_OFF,
                         data,
                         blocking=True,
-                        context=self._context(),
+                        context=off_context,
                     )
                 ],
                 "turn off holiday lights",
@@ -993,8 +1075,10 @@ class HolidayLightingController:
         self._stop_watching_lights()
         if not self.respect_manual or not holiday.lights:
             return
-        self._light_watch_unsub = async_track_state_change_event(
-            self.hass, holiday.lights, self._async_light_changed
+        self._light_watch_unsub = self.hass.bus.async_listen(
+            EVENT_CALL_SERVICE,
+            self._async_light_command,
+            event_filter=_is_light_command,
         )
 
     def _stop_watching_lights(self) -> None:
@@ -1002,51 +1086,48 @@ class HolidayLightingController:
             self._light_watch_unsub()
             self._light_watch_unsub = None
 
-    async def _async_light_changed(self, event: Event) -> None:
-        """Leave a light alone for the night if someone changes it by hand."""
-        entity_id: str = event.data["entity_id"]
-        new_state = event.data.get("new_state")
-        if (
-            self.running is None
-            or entity_id in self.night.overridden
-            or new_state is None
-            or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN)
-            or new_state.context.id in self._our_contexts
-        ):
+    @callback
+    def _async_light_command(self, event: Event) -> None:
+        """Leave a light alone for the night if someone else commands it.
+
+        Only light service calls made by something other than this
+        integration count: the app, an automation, a remote, a voice
+        assistant. Reported colors are not compared, since slow lights
+        often report an older color long after a command.
+        """
+        holiday = self.running
+        if holiday is None or event.context.id in self._our_contexts:
             return
-        manual = False
-        if new_state.state == STATE_OFF:
-            # We never turn lights off while running.
-            manual = True
-        elif (commanded := self._commanded.get(entity_id)) is not None:
-            expected, sent_at = commanded
-            settled = dt_util.utcnow() - sent_at > MANUAL_GRACE
-            if settled and expected is not None:
-                what, value = expected
-                if what == "rgb":
-                    reported = new_state.attributes.get(ATTR_RGB_COLOR)
-                    manual = (
-                        reported is not None
-                        and _color_distance(reported, value) > MANUAL_COLOR_DISTANCE
-                    )
-                else:
-                    reported = new_state.attributes.get(ATTR_COLOR_TEMP_KELVIN)
-                    manual = (
-                        reported is not None
-                        and abs(int(reported) - value) > MANUAL_KELVIN_DISTANCE
-                    )
-        if not manual:
+        call = ServiceCall(
+            self.hass,
+            event.data[ATTR_DOMAIN],
+            event.data[ATTR_SERVICE],
+            dict(event.data.get(ATTR_SERVICE_DATA) or {}),
+            event.context,
+        )
+        selected = async_extract_referenced_entity_ids(self.hass, call)
+        targets = selected.referenced | selected.indirectly_referenced
+        changed = [
+            entity_id
+            for entity_id in holiday.lights
+            if entity_id in targets and entity_id not in self.night.overridden
+        ]
+        if not changed:
             return
         _LOGGER.info(
-            "%s was changed by hand; leaving it alone until tomorrow", entity_id
+            "%s changed by %s.%s; leaving it alone until tomorrow",
+            ", ".join(changed),
+            event.data[ATTR_DOMAIN],
+            event.data[ATTR_SERVICE],
         )
-        self.night.overridden.add(entity_id)
+        for entity_id in changed:
+            self.night.overridden.add(entity_id)
+            # They own it now: don't restore or turn it off later.
+            self._snapshot.pop(entity_id, None)
+            self._commanded.pop(entity_id, None)
         self._notify_lights()
-        # They own it now: don't restore or turn it off later.
-        self._snapshot.pop(entity_id, None)
-        self._commanded.pop(entity_id, None)
-        await self._async_save()
         self._notify()
+        self.hass.async_create_task(self._async_save())
 
     # --- repairs -----------------------------------------------------------
 

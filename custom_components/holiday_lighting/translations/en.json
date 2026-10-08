@@ -36,7 +36,7 @@
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
           "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
-          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night.",
+          "respect_manual": "If someone changes or turns off a holiday light through Home Assistant (the app, an automation, a remote, a voice assistant), leave that light alone for the rest of the night. Turn off for tonight still turns off every holiday light.",
           "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable."
         }
       }
@@ -77,7 +77,7 @@
           "on_duration": "How long the lights stay on after turning on. Leave empty for no limit.",
           "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
-          "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night.",
+          "respect_manual": "If someone changes or turns off a holiday light through Home Assistant (the app, an automation, a remote, a voice assistant), leave that light alone for the rest of the night. Turn off for tonight still turns off every holiday light.",
           "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable.",
           "default_colors": "Shown on the default lights on nights with no holiday, on the same schedule. Leave empty to keep the lights off when there's no holiday."
         }
