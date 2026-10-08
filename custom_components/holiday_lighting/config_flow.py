@@ -47,6 +47,8 @@ from .const import (
     CONF_DARK_SOURCE,
     CONF_DAYS_AFTER,
     CONF_DAYS_BEFORE,
+    CONF_DEFAULT_COLOR_NAMES,
+    CONF_DEFAULT_COLORS,
     CONF_DEFAULT_LIGHTS,
     CONF_EASTER_OFFSET,
     CONF_END,
@@ -585,15 +587,40 @@ class HolidayLightingOptionsFlow(OptionsFlow):
         if user_input is not None:
             errors = _validate_schedule(user_input)
             if not errors:
-                return self.async_create_entry(data=user_input)
+                data = dict(user_input)
+                items = data.pop(CONF_DEFAULT_COLORS, None) or []
+                hexes = [rgb_to_hex(item[FIELD_COLOR]) for item in items]
+                if hexes:
+                    data[CONF_DEFAULT_COLORS] = hexes
+                    data[CONF_DEFAULT_COLOR_NAMES] = [
+                        (item.get(FIELD_COLOR_NAME) or "").strip() or hexes[index]
+                        for index, item in enumerate(items)
+                    ]
+                return self.async_create_entry(data=data)
 
         values = user_input or dict(self.config_entry.options)
+        default_items = (
+            values.get(CONF_DEFAULT_COLORS)
+            if user_input is not None
+            else _color_items(
+                {
+                    CONF_COLORS: values.get(CONF_DEFAULT_COLORS),
+                    CONF_COLOR_NAMES: values.get(CONF_DEFAULT_COLOR_NAMES),
+                }
+            )
+        )
         schema = vol.Schema(
             {
                 vol.Optional(
                     CONF_DEFAULT_LIGHTS,
                     description=_suggested(values, CONF_DEFAULT_LIGHTS),
                 ): LIGHTS_SELECTOR,
+                vol.Optional(
+                    CONF_DEFAULT_COLORS,
+                    description={"suggested_value": default_items}
+                    if default_items
+                    else {},
+                ): COLORS_SELECTOR,
             }
         ).extend(_schedule_schema(values).schema)
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

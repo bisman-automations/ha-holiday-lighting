@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-07
+
+### Added
+
+- **Default colors.** A new setting picks colors (for example, white) to show on the default lights on nights with no holiday, on the same schedule. Holidays take over on their dates. Leave it empty to keep the lights off when there's no holiday.
+- **A color sensor for each light**, such as "Front Entrance Light color". It shows the color the light is displaying right now, `Off`, or `Manual` if someone changed it by hand, with hex, RGB, how it's shown (in color, as a white, or as a brightness), and the holiday as attributes. Sensors for lights no longer used are removed.
+
 ## [1.5.1] - 2026-10-07
 
 ### Fixed
@@ -131,7 +138,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...v1.4.1

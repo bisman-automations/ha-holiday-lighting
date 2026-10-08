@@ -64,7 +64,8 @@
           "off_time": "Hard off time",
           "weekend_off_time": "Weekend hard off time",
           "respect_manual": "Respect manual changes",
-          "sun_source": "Sun elevation source"
+          "sun_source": "Sun elevation source",
+          "default_colors": "Default colors"
         },
         "data_description": {
           "default_lights": "Used for new holidays and for holidays with no lights selected. Drag to reorder.",
@@ -77,7 +78,8 @@
           "off_time": "Lights turn off at this time even if the duration has not passed. A time before noon means after midnight. Leave empty for no limit.",
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
           "respect_manual": "If someone changes or turns off a holiday light by hand, leave that light alone for the rest of the night.",
-          "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable."
+          "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable.",
+          "default_colors": "Shown on the default lights on nights with no holiday, on the same schedule. Leave empty to keep the lights off when there's no holiday."
         }
       }
     },
@@ -391,6 +393,26 @@
       },
       "lights_off_at": {
         "name": "Lights off at"
+      },
+      "light_color": {
+        "name": "{light} color",
+        "state_attributes": {
+          "light": {
+            "name": "Light"
+          },
+          "hex": {
+            "name": "Hex"
+          },
+          "rgb_color": {
+            "name": "RGB color"
+          },
+          "shown_as": {
+            "name": "Shown as"
+          },
+          "holiday": {
+            "name": "Holiday"
+          }
+        }
       }
     },
     "switch": {

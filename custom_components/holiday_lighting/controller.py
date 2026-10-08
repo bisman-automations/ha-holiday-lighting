@@ -56,6 +56,8 @@ from .const import (
     CONF_COLOR_NAMES,
     CONF_COLORS,
     CONF_DARK_SOURCE,
+    CONF_DEFAULT_COLOR_NAMES,
+    CONF_DEFAULT_COLORS,
     CONF_DEFAULT_LIGHTS,
     CONF_INTERVAL,
     CONF_KEYWORD,
@@ -76,9 +78,11 @@ from .const import (
     DARK_EITHER,
     DARK_LUX,
     DARK_SUN,
+    DEFAULT_HOLIDAY_ID,
     DEFAULT_INTERVAL,
     DEFAULT_LUX_THRESHOLD,
     DEFAULT_SUN_ELEVATION,
+    DEFAULT_TRANSITION,
     DOMAIN,
     KIND_CALENDAR,
     KIND_YEARLY,
@@ -121,6 +125,7 @@ MANUAL_GRACE = timedelta(seconds=10)
 MANUAL_COLOR_DISTANCE = 80
 MANUAL_KELVIN_DISTANCE = 500
 LIGHT_COMMAND_TIMEOUT = 15  # seconds
+DEFAULT_HOLIDAY_NAME = "Default colors"
 # Evaluations a light must stay unavailable before a repair is raised.
 UNAVAILABLE_STRIKES = 2
 
@@ -190,6 +195,17 @@ def _hex_to_rgb(color: str) -> list[int]:
     return [int(color[i : i + 2], 16) for i in (0, 2, 4)]
 
 
+def _shown_as(command: dict[str, Any]) -> str:
+    """How a light shows its color: in color, as a white, or as a brightness."""
+    if ATTR_RGB_COLOR in command:
+        return "color"
+    if ATTR_COLOR_TEMP_KELVIN in command:
+        return f"{command[ATTR_COLOR_TEMP_KELVIN]}K white"
+    if ATTR_BRIGHTNESS_PCT in command:
+        return f"{command[ATTR_BRIGHTNESS_PCT]}% brightness"
+    return "on"
+
+
 def _color_distance(a: list[int] | tuple[int, ...], b: list[int]) -> float:
     return math.dist(list(a)[:3], b[:3])
 
@@ -239,6 +255,37 @@ class HolidayLightingController:
             )
 
         options = entry.options
+        # Colors for nights with no holiday (empty: lights stay off).
+        self.default_holiday: Holiday | None = None
+        if default_colors := list(options.get(CONF_DEFAULT_COLORS) or []):
+            self.default_holiday = Holiday(
+                id=DEFAULT_HOLIDAY_ID,
+                name=DEFAULT_HOLIDAY_NAME,
+                kind=DEFAULT_HOLIDAY_ID,
+                data={},
+                colors=default_colors,
+                color_names=list(
+                    options.get(CONF_DEFAULT_COLOR_NAMES) or default_colors
+                ),
+                lights=default_lights,
+                mode=MODE_STATIC,
+                interval=DEFAULT_INTERVAL,
+                brightness=None,
+                transition=DEFAULT_TRANSITION,
+            )
+        # Every light any holiday (or the default colors) can use, in order.
+        self.all_lights: list[str] = list(
+            dict.fromkeys(
+                [
+                    *default_lights,
+                    *(e for h in self.holidays.values() for e in h.lights),
+                ]
+            )
+        )
+        # What each light is showing right now.
+        self.light_colors: dict[str, dict[str, Any]] = {}
+        self._light_listeners: list[Callable[[], None]] = []
+
         self.use_schedule: bool = options.get(CONF_USE_SCHEDULE, True)
         self.dark_source: str = options.get(CONF_DARK_SOURCE, DARK_SUN)
         self.sun_elevation: float = float(
@@ -329,6 +376,30 @@ class HolidayLightingController:
             self._listeners.remove(listener)
 
         return remove
+
+    @callback
+    def async_add_light_listener(self, listener: Callable[[], None]) -> CALLBACK_TYPE:
+        """Register a per-light color sensor update callback."""
+        self._light_listeners.append(listener)
+
+        @callback
+        def remove() -> None:
+            self._light_listeners.remove(listener)
+
+        return remove
+
+    @callback
+    def _notify_lights(self) -> None:
+        for listener in list(self._light_listeners):
+            listener()
+
+    def light_color(self, entity_id: str) -> tuple[str, dict[str, Any] | None]:
+        """("color", details), ("manual", None) or ("off", None) for a light."""
+        if entity_id in self.night.overridden:
+            return "manual", None
+        if self.running is not None and entity_id in self.light_colors:
+            return "color", self.light_colors[entity_id]
+        return "off", None
 
     @callback
     def _notify(self) -> None:
@@ -539,7 +610,9 @@ class HolidayLightingController:
             night_of(now),
             self._calendar_active,
         )
-        return self.holidays[found["id"]] if found else None
+        if found:
+            return self.holidays[found["id"]]
+        return self.default_holiday
 
     async def _async_refresh_calendars(self, now: datetime) -> None:
         """Find calendar holidays with a matching event tonight."""
@@ -705,12 +778,21 @@ class HolidayLightingController:
         now = dt_util.utcnow()
         # Group lights that get the exact same command into one call.
         commands: dict[tuple, list[str]] = {}
+        names = dict(zip(holiday.colors, holiday.color_names, strict=False))
         for color, entity_ids in assignments.items():
             rgb = _hex_to_rgb(color)
             for entity_id in entity_ids:
                 key, expected = self._command_for(entity_id, rgb, holiday)
                 commands.setdefault(key, []).append(entity_id)
                 self._commanded[entity_id] = (expected, now)
+                self.light_colors[entity_id] = {
+                    "name": names.get(color, color),
+                    "hex": color,
+                    "rgb_color": rgb,
+                    "shown_as": _shown_as(dict(key)),
+                    "holiday": holiday.name,
+                }
+        self._notify_lights()
         calls = []
         for key, entity_ids in commands.items():
             data: dict[str, Any] = {
@@ -820,10 +902,12 @@ class HolidayLightingController:
         lit_night = night_of(self.on_at) if self.on_at else night_of(now)
         self._snapshot.clear()
         self._commanded.clear()
+        self.light_colors.clear()
         self.running = None
         self.on_at = None
         self.offset = 0
         self.done_night = lit_night
+        self._notify_lights()
 
     async def _async_release(self, restore: bool) -> None:
         """Stop and put lights back the way they were."""
@@ -833,10 +917,12 @@ class HolidayLightingController:
             await self._async_restore(list(self._snapshot))
         self._snapshot.clear()
         self._commanded.clear()
+        self.light_colors.clear()
         self.night.overridden.clear()
         self.running = None
         self.on_at = None
         self.offset = 0
+        self._notify_lights()
 
     def _take_snapshot(self, entity_ids: list[str]) -> None:
         for entity_id in entity_ids:
@@ -936,6 +1022,7 @@ class HolidayLightingController:
             "%s was changed by hand; leaving it alone until tomorrow", entity_id
         )
         self.night.overridden.add(entity_id)
+        self._notify_lights()
         # They own it now: don't restore or turn it off later.
         self._snapshot.pop(entity_id, None)
         self._commanded.pop(entity_id, None)

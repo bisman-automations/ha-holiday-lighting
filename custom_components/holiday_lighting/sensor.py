@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import HolidayLightingConfigEntry
@@ -17,8 +18,11 @@ from .const import (
     STATUS_ON,
     STATUS_WAITING,
 )
+from .controller import HolidayLightingController
 from .entity import HolidayLightingEntity
 from .schedule import LIGHT_COLOR
+
+LIGHT_COLOR_PREFIX = "color_"
 
 
 async def async_setup_entry(
@@ -28,11 +32,24 @@ async def async_setup_entry(
 ) -> None:
     """Set up the sensors."""
     controller = entry.runtime_data
+    light_sensors = [
+        LightColorSensor(hass, controller, entity_id)
+        for entity_id in controller.all_lights
+    ]
+    # Drop color sensors for lights no holiday uses anymore.
+    keep = {sensor.unique_id for sensor in light_sensors}
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_{LIGHT_COLOR_PREFIX}"
+    for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        unique_id = registry_entry.unique_id
+        if unique_id.startswith(prefix) and unique_id not in keep:
+            registry.async_remove(registry_entry.entity_id)
     async_add_entities(
         [
             StatusSensor(controller, "status"),
             ActiveHolidaySensor(controller, "active_holiday"),
             LightsOffSensor(controller, "lights_off_at"),
+            *light_sensors,
         ]
     )
 
@@ -105,3 +122,69 @@ class LightsOffSensor(HolidayLightingEntity, SensorEntity):
     def native_value(self) -> datetime | None:
         """Scheduled off time."""
         return self.controller.deadline
+
+
+class LightColorSensor(HolidayLightingEntity, SensorEntity):
+    """The color one light is showing right now."""
+
+    # These change on every color step; keep the details out of history.
+    _unrecorded_attributes = frozenset(
+        {"light", "hex", "rgb_color", "shown_as", "holiday"}
+    )
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        controller: HolidayLightingController,
+        light_entity_id: str,
+    ) -> None:
+        """Initialise for one light."""
+        super().__init__(controller, "light_color")
+        self.light_entity_id = light_entity_id
+        self._attr_unique_id = (
+            f"{controller.entry.entry_id}_{LIGHT_COLOR_PREFIX}{light_entity_id}"
+        )
+        state = hass.states.get(light_entity_id)
+        light_name = (
+            state.name
+            if state is not None
+            else light_entity_id.split(".", 1)[-1].replace("_", " ").title()
+        )
+        self._attr_translation_placeholders = {"light": light_name}
+
+    async def async_added_to_hass(self) -> None:
+        """Update on every color step, not just status changes."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.controller.async_add_light_listener(self.async_write_ha_state)
+        )
+
+    @property
+    def native_value(self) -> str:
+        """The color name, or Off / Manual."""
+        what, details = self.controller.light_color(self.light_entity_id)
+        if details is not None:
+            return details["name"]
+        return "Manual" if what == "manual" else "Off"
+
+    @property
+    def icon(self) -> str:
+        """Lit bulb while showing a color."""
+        what, _details = self.controller.light_color(self.light_entity_id)
+        if what == "color":
+            return "mdi:lightbulb-on"
+        return (
+            "mdi:lightbulb-alert-outline"
+            if what == "manual"
+            else "mdi:lightbulb-outline"
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Hex, RGB, how it's shown, and the holiday."""
+        attrs: dict[str, Any] = {"light": self.light_entity_id}
+        what, details = self.controller.light_color(self.light_entity_id)
+        if details is not None:
+            attrs.update(details)
+            attrs.pop("name", None)
+        return attrs

@@ -1308,3 +1308,169 @@ async def test_rotation_skips_steps_while_busy(
         await controller._async_rotate(dt_util.now())
         assert controller.offset == offset + 1
         assert controller.diagnostics()["skipped_rotation_steps"] == 2
+
+
+async def test_light_color_sensors(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    freezer.move_to(datetime(2026, 10, 7, 20, 0, tzinfo=tz))
+    hass.states.async_set(
+        "light.porch",
+        "off",
+        {"friendly_name": "Front Porch", "supported_color_modes": ["hs"]},
+    )
+    hass.states.async_set("light.tree", "off", {"supported_color_modes": ["hs"]})
+    hass.states.async_set(
+        "light.garage",
+        "off",
+        {"friendly_name": "Garage", "supported_color_modes": ["color_temp"]},
+    )
+    async_mock_service(hass, "light", "turn_on")
+    turn_off = async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday(
+            "Halloween",
+            kind="yearly",
+            start="10-01",
+            end="10-31",
+            colors=["#FF6600", "#8000FF", "#00FF00"],
+            color_names=["Orange", "Purple", "Green"],
+        ),
+    )
+    with patch(DARK, return_value=False):
+        await _start(hass, entry)
+    porch = "sensor.holiday_lighting_front_porch_color"
+    tree = "sensor.holiday_lighting_tree_color"
+    garage = "sensor.holiday_lighting_garage_color"
+    assert hass.states.get(porch).state == "Off"
+
+    with patch(DARK, return_value=True):
+        await _tick(hass, freezer, datetime(2026, 10, 7, 20, 1, tzinfo=tz))
+        assert hass.states.get(porch).state == "Orange"
+        assert hass.states.get(porch).attributes["hex"] == "#FF6600"
+        assert hass.states.get(porch).attributes["holiday"] == "Halloween"
+        assert hass.states.get(porch).attributes["shown_as"] == "color"
+        assert hass.states.get(tree).state == "Purple"
+        # A color-temperature bulb: green shows as neutral white.
+        assert hass.states.get(garage).state == "Green"
+        assert hass.states.get(garage).attributes["shown_as"] == "4000K white"
+
+        # Next chase step: every color moves one light down.
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_next_colors"},
+            blocking=True,
+        )
+        assert hass.states.get(porch).state == "Green"
+        assert hass.states.get(tree).state == "Orange"
+
+        # The tree reports it is on (our command)...
+        hass.states.async_set(
+            "light.tree",
+            "on",
+            {"supported_color_modes": ["hs"]},
+            context=Context(id=entry.runtime_data._our_contexts[-1]),
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert hass.states.get(tree).state == "Orange"
+        # ...then someone turns it off by hand.
+        hass.states.async_set(
+            "light.tree", "off", {"supported_color_modes": ["hs"]}, context=Context()
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert hass.states.get(tree).state == "Manual"
+
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.holiday_lighting_turn_off_for_tonight"},
+            blocking=True,
+        )
+        assert turn_off
+        assert hass.states.get(porch).state == "Off"
+        assert "hex" not in hass.states.get(porch).attributes
+
+
+async def test_light_color_sensor_removed_with_light(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    await _start(hass, entry)
+    registry = er.async_get(hass)
+    assert registry.async_get("sensor.holiday_lighting_garage_color")
+    hass.config_entries.async_update_entry(
+        entry, options=dict(entry.options) | {"default_lights": ["light.porch"]}
+    )
+    sub_id = next(iter(entry.subentries))
+    sub = entry.subentries[sub_id]
+    hass.config_entries.async_update_subentry(
+        entry, sub, data=dict(sub.data) | {"lights": ["light.porch", "light.tree"]}
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert registry.async_get("sensor.holiday_lighting_garage_color") is None
+    assert registry.async_get("sensor.holiday_lighting_porch_color")
+
+
+async def test_default_colors_when_no_holiday(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    freezer.move_to(datetime(2026, 8, 20, 20, 0, tzinfo=tz))  # no holiday
+    turn_on = async_mock_service(hass, "light", "turn_on")
+    async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        assert _state(hass, "status") == "no_holiday"
+
+        # Set white as the default through the settings form.
+        turn_on.clear()
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        fields = {
+            f["name"]: f
+            for f in voluptuous_serialize.convert(
+                result["data_schema"], custom_serializer=cv.custom_serializer
+            )
+        }
+        assert fields["default_colors"]["selector"]["object"]["multiple"] is True
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            dict(entry.options)
+            | {"default_colors": [{"name": "White", "color": [255, 255, 255]}]},
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert entry.options["default_colors"] == ["#FFFFFF"]
+        assert entry.options["default_color_names"] == ["White"]
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+        # Saving reloads the integration, which turns the white lights on.
+        await _tick(hass, freezer, datetime(2026, 8, 20, 20, 1, tzinfo=tz))
+        assert _state(hass, "status") == "on"
+        assert _state(hass, "active_holiday") == "Default colors"
+        assert {tuple(c.data["rgb_color"]) for c in turn_on} == {(255, 255, 255)}
+        assert sorted(e for c in turn_on for e in c.data["entity_id"]) == sorted(LIGHTS)
+        assert hass.states.get("sensor.holiday_lighting_porch_color").state == "White"
+
+        # Editing the settings shows the saved default colors.
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        fields = {
+            f["name"]: f
+            for f in voluptuous_serialize.convert(
+                result["data_schema"], custom_serializer=cv.custom_serializer
+            )
+        }
+        assert fields["default_colors"]["description"]["suggested_value"] == [
+            {"name": "White", "color": [255, 255, 255]}
+        ]
+        hass.config_entries.options.async_abort(result["flow_id"])
+
+    # On a holiday, the holiday wins over the default.
+    with patch(DARK, return_value=False):  # midday
+        await _tick(hass, freezer, datetime(2026, 10, 7, 12, 0, tzinfo=tz))
+    with patch(DARK, return_value=True):  # evening
+        await _tick(hass, freezer, datetime(2026, 10, 7, 20, 0, tzinfo=tz))
+        assert _state(hass, "active_holiday") == "Halloween"

@@ -13,6 +13,8 @@ Home Assistant integration to create holiday color themes and rotate them across
 - **Effects.** Chase colors down your lights, cycle or fade the whole house through them together, twinkle randomly, or hold them static.
 - **Runs itself every night.** Lights come on when it gets dark (sun elevation, an illuminance sensor, or either), stay on for a set time, and turn off at a hard off time, whichever comes first. Holidays can set their own schedule, and Friday and Saturday can have a later off time.
 - **Plays nice.** If someone changes a light by hand, it's left alone for the rest of the night. Turning holiday lighting off restores each light's previous state.
+- **Default colors for every other night.** Pick colors (like white) to show on nights with no holiday, on the same schedule.
+- **See every light.** A sensor for each light shows the color it's displaying right now.
 - **Works with any light.** Color bulbs show the colors; white and color-temperature bulbs follow along with matching brightness or warm and cool whites.
 - **Tells you when something's wrong.** Repairs flag lights that have gone unavailable.
 
@@ -101,6 +103,7 @@ Every holiday also has:
 | `sensor.holiday_lighting_status` | `disabled`, `waiting_for_dark`, `on`, `done_for_tonight`, `no_holiday`. Attributes include lights changed by hand tonight. |
 | `sensor.holiday_lighting_active_holiday` | Showing now, with colors, lights, and the next holiday as attributes. |
 | `sensor.holiday_lighting_lights_off_at` | When tonight's lights turn off. |
+| `sensor.holiday_lighting_<light>_color` | One per light: the color it's showing now (e.g. `Orange`), `Off`, or `Manual` if changed by hand. Attributes: hex, RGB, how it's shown, and the holiday. |
 | `button.holiday_lighting_turn_on_now` | Turn on now, ignoring darkness. Off rules still apply. |
 | `button.holiday_lighting_next_colors` | Move the colors forward one step. |
 | `button.holiday_lighting_turn_off_for_tonight` | Turn off and stay off for the rest of tonight. |
@@ -112,6 +115,10 @@ Every holiday also has:
 | `holiday_lighting.start` | Turn on now, ignoring darkness. Optional `holiday` name. Off rules still apply. |
 | `holiday_lighting.stop` | Turn off and stay off for the rest of tonight. |
 | `holiday_lighting.advance` | Move the rotation forward one step. |
+
+## Default colors
+
+In the integration's settings, **Default colors** are shown on your default lights on nights with no holiday, on the same dark-to-off schedule. For example, pick white to light the front of the house every night, with holidays taking over on their dates. Leave it empty to keep the lights off on non-holiday nights. The Active holiday sensor shows **Default colors** while they're on.
 
 ## Lights without color
 
@@ -125,6 +132,17 @@ Every light in a holiday does something it can show:
 | On/off | On. |
 
 The Active holiday sensor lists these under **Lights shown in white**.
+
+## Light color sensors and history
+
+Each light's color sensor changes on every color step. With a short rotation interval, that's frequent, so the details (hex, RGB, holiday) are kept out of history. To leave the sensors out of history entirely, add this to `configuration.yaml`:
+
+```yaml
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.holiday_lighting_*_color
+```
 
 ## Dashboard card
 

@@ -9,6 +9,9 @@ DOMAIN: Final = "holiday_lighting"
 # Options keys
 CONF_DEFAULT_LIGHTS: Final = "default_lights"
 CONF_PRESETS: Final = "presets"
+CONF_DEFAULT_COLORS: Final = "default_colors"
+CONF_DEFAULT_COLOR_NAMES: Final = "default_color_names"
+DEFAULT_HOLIDAY_ID: Final = "default"
 
 # Per-holiday keys
 CONF_NAME: Final = "name"
