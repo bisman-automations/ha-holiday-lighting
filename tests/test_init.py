@@ -1,5 +1,6 @@
 """End-to-end tests: config flow and a full night of lights."""
 
+import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -1220,3 +1221,90 @@ async def test_buttons_and_dashboard_card(
         )
         assert turn_off
         assert _state(hass, "status") == "done_for_tonight"
+
+
+async def test_status_is_on_while_lights_are_still_responding(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Regression: diagnostics showed "disabled" while commands were in flight."""
+    freezer.move_to(datetime(2026, 10, 7, 20, 47, tzinfo=tz))
+    seen: list[str] = []
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+
+    async def slow_turn_on(call) -> None:
+        seen.append(entry.runtime_data.status)
+
+    hass.services.async_register("light", "turn_on", slow_turn_on)
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        await hass.services.async_call(
+            "switch",
+            "turn_on",
+            {"entity_id": "switch.holiday_lighting_enabled"},
+            blocking=True,
+        )
+    assert seen and set(seen) == {"on"}
+
+
+async def test_unresponsive_light_does_not_block_the_controller(
+    hass: HomeAssistant,
+) -> None:
+    """A hung light gives up after the timeout. (No frozen clock: the timeout
+    runs on the real event loop clock.)"""
+    release = asyncio.Event()
+
+    async def hung_turn_on(call) -> None:
+        await release.wait()
+
+    hass.services.async_register("light", "turn_on", hung_turn_on)
+    turn_off = async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    controller = entry.runtime_data
+    holiday_id = next(iter(entry.subentries))
+    with patch(
+        "custom_components.holiday_lighting.controller.LIGHT_COMMAND_TIMEOUT", 0.05
+    ):
+        async with asyncio.timeout(5):  # the test itself must not hang
+            await controller.async_force_on(holiday_id)
+        # Gave up on the hung light and finished.
+        assert controller.status == "on"
+        assert not controller._lock.locked()
+        assert controller.slow_light_commands >= 1
+        # The stop button still works right away.
+        async with asyncio.timeout(5):
+            await controller.async_force_off()
+        assert turn_off
+        assert controller.status == "done_for_tonight"
+    release.set()
+    await hass.async_block_till_done()
+
+
+async def test_rotation_skips_steps_while_busy(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    freezer.move_to(datetime(2026, 10, 7, 20, 47, tzinfo=tz))
+    turn_on = async_mock_service(hass, "light", "turn_on")
+    entry = _entry_with(
+        _holiday("Halloween", kind="yearly", start="10-01", end="10-31"),
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        controller = entry.runtime_data
+        offset = controller.offset
+        turn_on.clear()
+        async with controller._lock:  # e.g. the last step is still running
+            await controller._async_rotate(dt_util.now())
+            await controller._async_rotate(dt_util.now())
+        assert controller.offset == offset
+        assert controller.skipped_steps == 2
+        assert not turn_on
+        await controller._async_rotate(dt_util.now())
+        assert controller.offset == offset + 1
+        assert controller.diagnostics()["skipped_rotation_steps"] == 2

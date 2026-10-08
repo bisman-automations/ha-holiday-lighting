@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-07
+
+### Fixed
+
+- Status showed **Disabled** while the lights were still confirming they had turned on. It now shows **On** as soon as the lights are told to turn on.
+- A slow or unresponsive light could hold up the integration indefinitely, delaying everything behind it, including turning the lights off at the off time. Light commands now give up after 15 seconds and carry on.
+- With a short rotation interval, color steps could pile up behind slow lights. A step is now skipped if the previous one is still running.
+
+### Added
+
+- Diagnostics show whether the integration is busy, how many light commands timed out, and how many rotation steps were skipped.
+
 ## [1.5.0] - 2026-10-07
 
 ### Added
@@ -119,7 +131,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.3.1...v1.4.0

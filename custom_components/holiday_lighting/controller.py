@@ -120,6 +120,7 @@ MANUAL_GRACE = timedelta(seconds=10)
 # Euclidean RGB distance beyond which a reported color is "different".
 MANUAL_COLOR_DISTANCE = 80
 MANUAL_KELVIN_DISTANCE = 500
+LIGHT_COMMAND_TIMEOUT = 15  # seconds
 # Evaluations a light must stay unavailable before a repair is raised.
 UNAVAILABLE_STRIKES = 2
 
@@ -270,6 +271,8 @@ class HolidayLightingController:
         self._calendar_checked: tuple[date, datetime] | None = None
         self._our_contexts: deque[str] = deque(maxlen=64)
         self._commanded: dict[str, tuple[tuple[str, Any] | None, datetime]] = {}
+        self.slow_light_commands = 0
+        self.skipped_steps = 0
         self._unavailable_strikes: dict[str, int] = {}
 
     # --- lifecycle ---------------------------------------------------------
@@ -363,8 +366,8 @@ class HolidayLightingController:
             else:
                 self.done_night = None
                 self.on_at = now
-                await self._async_run(holiday)
                 self.status = STATUS_ON
+                await self._async_run(holiday)
             await self._async_save()
         self._notify()
 
@@ -493,6 +496,9 @@ class HolidayLightingController:
             "done_night": self.done_night.isoformat() if self.done_night else None,
             "offset": self.offset,
             "dark": self.is_dark(),
+            "busy": self._lock.locked(),
+            "slow_light_commands": self.slow_light_commands,
+            "skipped_rotation_steps": self.skipped_steps,
             "sun_elevation": round(self.current_sun_elevation(), 2),
             "sun_source": self.sun_source,
             "sun_source_ok": self.sun_elevation_from_source() is not None,
@@ -555,17 +561,18 @@ class HolidayLightingController:
         end = datetime.combine(night + timedelta(days=1), time(0), tzinfo=now.tzinfo)
         entity_ids = sorted({h.calendar for h in calendar_holidays if h.calendar})
         try:
-            response = await self.hass.services.async_call(
-                "calendar",
-                "get_events",
-                {
-                    ATTR_ENTITY_ID: entity_ids,
-                    "start_date_time": start.isoformat(),
-                    "end_date_time": end.isoformat(),
-                },
-                blocking=True,
-                return_response=True,
-            )
+            async with asyncio.timeout(LIGHT_COMMAND_TIMEOUT):
+                response = await self.hass.services.async_call(
+                    "calendar",
+                    "get_events",
+                    {
+                        ATTR_ENTITY_ID: entity_ids,
+                        "start_date_time": start.isoformat(),
+                        "end_date_time": end.isoformat(),
+                    },
+                    blocking=True,
+                    return_response=True,
+                )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not read calendars %s: %s", entity_ids, err)
             return
@@ -602,9 +609,9 @@ class HolidayLightingController:
             # Always on while enabled.
             if self.on_at is None:
                 self.on_at = now
+            self.status = STATUS_ON
             if self.running is None or self.running.id != holiday.id:
                 await self._async_run(holiday)
-            self.status = STATUS_ON
             return
 
         if self.on_at is not None:
@@ -635,8 +642,8 @@ class HolidayLightingController:
             return
 
         self.on_at = now
-        await self._async_run(holiday)
         self.status = STATUS_ON
+        await self._async_run(holiday)
 
     # --- driving lights ----------------------------------------------------
 
@@ -664,6 +671,11 @@ class HolidayLightingController:
         self._watch_lights(holiday)
 
     async def _async_rotate(self, _now: datetime) -> None:
+        if self._lock.locked():
+            # The last step (or an evaluation) is still waiting on the lights.
+            # Skip this step rather than letting steps pile up.
+            self.skipped_steps += 1
+            return
         async with self._lock:
             if self.running is None:
                 return
@@ -712,9 +724,30 @@ class HolidayLightingController:
                     LIGHT_DOMAIN, SERVICE_TURN_ON, data, blocking=True, context=context
                 )
             )
-        for result in await asyncio.gather(*calls, return_exceptions=True):
+        await self._async_light_calls(calls, "set holiday colors")
+
+    async def _async_light_calls(self, calls: list, what: str) -> None:
+        """Run light service calls together, without waiting forever.
+
+        A slow or unresponsive light must not hold the controller (and the
+        off-time check behind it) hostage.
+        """
+        if not calls:
+            return
+        try:
+            async with asyncio.timeout(LIGHT_COMMAND_TIMEOUT):
+                results = await asyncio.gather(*calls, return_exceptions=True)
+        except TimeoutError:
+            self.slow_light_commands += 1
+            _LOGGER.warning(
+                "Lights took longer than %ss to %s; carrying on",
+                LIGHT_COMMAND_TIMEOUT,
+                what,
+            )
+            return
+        for result in results:
             if isinstance(result, Exception):
-                _LOGGER.warning("Failed to set holiday color: %s", result)
+                _LOGGER.warning("Failed to %s: %s", what, result)
 
     def light_kind(self, entity_id: str) -> str:
         """Whether a light shows color, color temperature, brightness or on/off."""
@@ -770,16 +803,18 @@ class HolidayLightingController:
             data: dict[str, Any] = {ATTR_ENTITY_ID: lights}
             if self.running and self.running.transition:
                 data[ATTR_TRANSITION] = self.running.transition
-            try:
-                await self.hass.services.async_call(
-                    LIGHT_DOMAIN,
-                    SERVICE_TURN_OFF,
-                    data,
-                    blocking=True,
-                    context=self._context(),
-                )
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("Failed to turn off holiday lights: %s", err)
+            await self._async_light_calls(
+                [
+                    self.hass.services.async_call(
+                        LIGHT_DOMAIN,
+                        SERVICE_TURN_OFF,
+                        data,
+                        blocking=True,
+                        context=self._context(),
+                    )
+                ],
+                "turn off holiday lights",
+            )
         # The night the lights were on is done, which may be an earlier
         # night than now if Home Assistant missed the off time.
         lit_night = night_of(self.on_at) if self.on_at else night_of(now)
@@ -845,9 +880,7 @@ class HolidayLightingController:
                     LIGHT_DOMAIN, SERVICE_TURN_ON, data, blocking=True, context=context
                 )
             )
-        for result in await asyncio.gather(*calls, return_exceptions=True):
-            if isinstance(result, Exception):
-                _LOGGER.warning("Failed to restore a light: %s", result)
+        await self._async_light_calls(calls, "restore lights")
 
     # --- manual changes ----------------------------------------------------
 
