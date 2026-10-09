@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-09
+
+### Fixed
+
+- The integration failed to load on Home Assistant 2026.10 ("cannot import name 'async_extract_referenced_entity_ids'"). Home Assistant moved that helper in 2026.10; Holiday Lighting now uses the new location, which also works on older versions.
+
 ## [1.7.1] - 2026-10-08
 
 ### Fixed
@@ -153,7 +159,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.2...HEAD
+[1.7.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.5.0...v1.6.0

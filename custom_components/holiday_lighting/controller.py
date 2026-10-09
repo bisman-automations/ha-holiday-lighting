@@ -46,16 +46,15 @@ from homeassistant.core import (
     Context,
     Event,
     HomeAssistant,
-    ServiceCall,
     callback,
 )
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import target as target_helpers
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,
     async_track_time_interval,
 )
-from homeassistant.helpers.service import async_extract_referenced_entity_ids
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.sun import get_astral_location
 from homeassistant.util import dt as dt_util
@@ -219,6 +218,27 @@ def _is_light_command(event_data: Mapping[str, Any]) -> bool:
     return event_data.get(ATTR_DOMAIN) in (LIGHT_DOMAIN, "homeassistant") and (
         event_data.get(ATTR_SERVICE) in (SERVICE_TURN_ON, SERVICE_TURN_OFF, "toggle")
     )
+
+
+def _command_targets(hass: HomeAssistant, data: dict[str, Any]) -> set[str]:
+    """Entity IDs a light command targets, including areas, devices and labels.
+
+    Never raises: if Home Assistant's target helper changes, fall back to
+    the entity IDs named directly in the call.
+    """
+    try:
+        selected = target_helpers.async_extract_referenced_entity_ids(
+            hass, target_helpers.TargetSelection(data)
+        )
+        return set(selected.referenced) | set(selected.indirectly_referenced)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Could not expand light command targets", exc_info=True)
+    entity_ids = data.get(ATTR_ENTITY_ID)
+    if isinstance(entity_ids, str):
+        return {e.strip() for e in entity_ids.split(",")}
+    if isinstance(entity_ids, list):
+        return {str(e) for e in entity_ids}
+    return set()
 
 
 class HolidayLightingController:
@@ -1098,15 +1118,9 @@ class HolidayLightingController:
         holiday = self.running
         if holiday is None or event.context.id in self._our_contexts:
             return
-        call = ServiceCall(
-            self.hass,
-            event.data[ATTR_DOMAIN],
-            event.data[ATTR_SERVICE],
-            dict(event.data.get(ATTR_SERVICE_DATA) or {}),
-            event.context,
+        targets = _command_targets(
+            self.hass, dict(event.data.get(ATTR_SERVICE_DATA) or {})
         )
-        selected = async_extract_referenced_entity_ids(self.hass, call)
-        targets = selected.referenced | selected.indirectly_referenced
         changed = [
             entity_id
             for entity_id in holiday.lights
