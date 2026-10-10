@@ -102,7 +102,7 @@ Every holiday also has:
 | `switch.holiday_lighting_enabled` | Arms the nightly schedule. Turning it off restores your lights. |
 | `select.holiday_lighting_theme` | **Auto** follows the calendar, or pick a holiday to force it. |
 | `sensor.holiday_lighting_status` | `disabled`, `waiting_for_dark`, `on`, `done_for_tonight`, `no_holiday`. Attributes include lights changed by hand tonight. |
-| `sensor.holiday_lighting_active_holiday` | Showing now, with colors, lights, and the next holiday as attributes. |
+| `sensor.holiday_lighting_active_holiday` | The holiday showing now, or the one picked for tonight (`Default colors` on nights with no holiday, or `No holiday` if default colors aren't set). Attributes: colors, lights, `showing` (whether the lights are on for it), and the next holiday. |
 | `sensor.holiday_lighting_lights_off_at` | When the lights turn off next. Before dark, tonight's off time; once the lights are on, recalculated with the on duration; after they turn off, the next night's off time. Unknown only when holiday lighting is disabled, the schedule is off, or the holiday stays on all night. |
 | `sensor.holiday_lighting_<light>_color` | One per light: the color it's showing now (e.g. `Orange`), `Off`, or `Manual` if changed by hand. Attributes: hex, RGB, how it's shown, and the holiday. |
 | `calendar.holiday_lighting_schedule` | What each night will show. See [Schedule calendar](#schedule-calendar). |

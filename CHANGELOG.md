@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-09
+
+### Changed
+
+- **Active holiday** never goes to Unknown. When the lights are off (before dark, after the off time, or with holiday lighting disabled), it shows the holiday picked for tonight, or `Default colors` on nights with no holiday. If there's no holiday and no default colors are set, it shows `No holiday`. A new `showing` attribute says whether the lights are on for it.
+- The example dashboard card always shows the holiday and its colors, with the status and off time underneath.
+
 ## [1.7.3] - 2026-10-09
 
 ### Changed
@@ -165,7 +172,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.3...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.4...HEAD
+[1.7.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.0...v1.7.1

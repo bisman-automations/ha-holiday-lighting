@@ -11,16 +11,10 @@ cards:
   - type: markdown
     content: >-
       {% set holiday = states('sensor.holiday_lighting_active_holiday') %}
-      {% set status = states('sensor.holiday_lighting_status') %}
       {% set off_at = states('sensor.holiday_lighting_lights_off_at') %}
-      {% if holiday not in ['unknown', 'unavailable', 'none', ''] %}
-      **{{ holiday }}**: {{ state_attr('sensor.holiday_lighting_active_holiday', 'color_names') | join(', ') }}
-      {% else %}
-      **{{ state_translated('sensor.holiday_lighting_status') }}**
-      {% endif %}
-      {% if status == 'on' and off_at not in ['unknown', 'unavailable'] %}
-      <br>Off at {{ as_timestamp(off_at) | timestamp_custom('%-I:%M %p') }}
-      {% endif %}
+      {% set names = state_attr('sensor.holiday_lighting_active_holiday', 'color_names') %}
+      **{{ holiday }}**{% if names %}: {{ names | join(', ') }}{% endif %}
+      <br>{{ state_translated('sensor.holiday_lighting_status') }}{% if off_at not in ['unknown', 'unavailable'] %}, off at {{ as_timestamp(off_at) | timestamp_custom('%-I:%M %p') }}{% endif %}
       {% set next = state_attr('sensor.holiday_lighting_active_holiday', 'next_holiday') %}
       {% if next %}
       <br>Next: {{ next }}, {{ strptime(state_attr('sensor.holiday_lighting_active_holiday', 'next_holiday_start'), '%Y-%m-%d').strftime('%b %-d') }}

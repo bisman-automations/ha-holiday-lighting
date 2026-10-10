@@ -260,6 +260,10 @@ async def test_full_night(
             == "waiting_for_dark"
         )
         assert not turn_on
+        assert (
+            hass.states.get("sensor.holiday_lighting_active_holiday").state
+            == "Christmas"
+        )
         # Before dark: tonight's hard off time.
         off_at = hass.states.get("sensor.holiday_lighting_lights_off_at").state
         assert dt_util.parse_datetime(off_at) == datetime(
@@ -304,6 +308,10 @@ async def test_full_night(
             hass.states.get("sensor.holiday_lighting_status").state
             == "done_for_tonight"
         )
+        # Done for tonight: still names tonight's holiday, just not showing.
+        active = hass.states.get("sensor.holiday_lighting_active_holiday")
+        assert active.state == "Christmas"
+        assert active.attributes["showing"] is False
         # Done for tonight: tomorrow night's hard off time, not unknown.
         off_at = hass.states.get("sensor.holiday_lighting_lights_off_at").state
         assert dt_util.parse_datetime(off_at) == datetime(
@@ -1292,7 +1300,7 @@ async def test_buttons_and_dashboard_card(
         assert _state(hass, "status") == "on"
         rendered = Template(markdown["content"], hass).async_render()
         assert "**Christmas**: Red, Green, White" in rendered
-        assert "Off at" in rendered
+        assert "On, off at" in rendered
 
         turn_on.clear()
         await hass.services.async_call(

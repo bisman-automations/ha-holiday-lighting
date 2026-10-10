@@ -23,6 +23,7 @@ from .entity import HolidayLightingEntity
 from .schedule import LIGHT_COLOR
 
 LIGHT_COLOR_PREFIX = "color_"
+NO_HOLIDAY = "No holiday"
 
 
 async def async_setup_entry(
@@ -85,29 +86,30 @@ class StatusSensor(HolidayLightingEntity, SensorEntity):
 
 
 class ActiveHolidaySensor(HolidayLightingEntity, SensorEntity):
-    """The holiday currently showing (or selected for tonight)."""
+    """The holiday showing now, or the one picked for tonight."""
 
     @property
-    def native_value(self) -> str | None:
-        """Holiday name."""
-        running = self.controller.running
-        return running.name if running else None
+    def native_value(self) -> str:
+        """Holiday name, "Default colors", or "No holiday"."""
+        holiday = self.controller.shown_holiday()
+        return holiday.name if holiday else NO_HOLIDAY
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Colors, lights and the next holiday."""
-        attrs: dict[str, Any] = {}
-        if running := self.controller.running:
-            attrs["colors"] = running.colors
-            attrs["color_names"] = running.color_names
-            attrs["lights"] = running.lights
-            attrs["mode"] = running.mode
+        """Colors, lights, whether it's showing, and the next holiday."""
+        controller = self.controller
+        attrs: dict[str, Any] = {"showing": controller.running is not None}
+        if holiday := controller.shown_holiday():
+            attrs["colors"] = holiday.colors
+            attrs["color_names"] = holiday.color_names
+            attrs["lights"] = holiday.lights
+            attrs["mode"] = holiday.mode
             attrs["white_lights"] = [
                 entity_id
-                for entity_id in running.lights
-                if self.controller.light_kind(entity_id) != LIGHT_COLOR
+                for entity_id in holiday.lights
+                if controller.light_kind(entity_id) != LIGHT_COLOR
             ]
-        if upcoming := self.controller.upcoming():
+        if upcoming := controller.upcoming():
             attrs["next_holiday"] = upcoming[0].name
             attrs["next_holiday_start"] = upcoming[1].isoformat()
         return attrs

@@ -552,6 +552,13 @@ class HolidayLightingController:
         """When the lights will turn off, if they are on and a limit is set."""
         return self.deadline_for(self.running)
 
+    def shown_holiday(self) -> Holiday | None:
+        """The holiday showing now, or the one picked for tonight.
+
+        None only when there's no holiday tonight and no default colors.
+        """
+        return self.running or self._selected_holiday(dt_util.now())
+
     def next_off(self) -> datetime | None:
         """When the lights next turn off, for display.
 
