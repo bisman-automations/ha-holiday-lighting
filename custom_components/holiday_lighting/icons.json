@@ -36,6 +36,9 @@
       },
       "next": {
         "default": "mdi:skip-next"
+      },
+      "default": {
+        "default": "mdi:palette-swatch-outline"
       }
     },
     "calendar": {

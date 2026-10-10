@@ -1651,3 +1651,86 @@ async def test_schedule_calendar_without_default(
     assert state.state == "off"
     assert state.attributes["message"] == "Halloween"  # the next event
     assert state.attributes["start_time"].startswith("2026-10-01")
+
+
+async def test_default_colors_tonight_button(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """The button swaps the holiday for the default colors until tomorrow."""
+    from homeassistant.exceptions import ServiceValidationError
+
+    freezer.move_to(datetime(2026, 12, 5, 18, 0, tzinfo=tz))
+    turn_on = async_mock_service(hass, "light", "turn_on")
+    async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26"),
+        default_colors=["#FFFFFF"],
+        default_color_names=["White"],
+    )
+    button = "button.holiday_lighting_use_default_colors_tonight"
+    with patch(DARK, return_value=True):
+        await _start(hass, entry)
+        assert _state(hass, "active_holiday") == "Christmas"
+        assert (
+            hass.states.get("calendar.holiday_lighting_schedule")
+            .attributes["message"]
+            .startswith("Christmas")
+        )
+
+        turn_on.clear()
+        await hass.services.async_call(
+            "button", "press", {"entity_id": button}, blocking=True
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        # Switched right away, and every sensor follows.
+        assert _state(hass, "status") == "on"
+        assert _state(hass, "active_holiday") == "Default colors"
+        assert {tuple(c.data["rgb_color"]) for c in turn_on} == {(255, 255, 255)}
+        assert hass.states.get("sensor.holiday_lighting_porch_color").state == "White"
+        assert (
+            hass.states.get("calendar.holiday_lighting_schedule")
+            .attributes["message"]
+            .startswith("Default colors")
+        )
+
+        # Still tonight after midnight.
+        await _tick(hass, freezer, datetime(2026, 12, 6, 0, 30, tzinfo=tz))
+        assert _state(hass, "active_holiday") == "Default colors"
+
+    # Next day: back to the holiday, before and after dark.
+    with patch(DARK, return_value=False):
+        await _tick(hass, freezer, datetime(2026, 12, 6, 13, 0, tzinfo=tz))
+        assert _state(hass, "active_holiday") == "Christmas"
+        assert (
+            hass.states.get("calendar.holiday_lighting_schedule")
+            .attributes["message"]
+            .startswith("Christmas")
+        )
+    with patch(DARK, return_value=True):
+        await _tick(hass, freezer, datetime(2026, 12, 6, 18, 0, tzinfo=tz))
+        assert _state(hass, "status") == "on"
+        assert _state(hass, "active_holiday") == "Christmas"
+
+        # Picking a theme takes over from the button.
+        await hass.services.async_call(
+            "button", "press", {"entity_id": button}, blocking=True
+        )
+        assert _state(hass, "active_holiday") == "Default colors"
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": "select.holiday_lighting_theme", "option": "Christmas"},
+            blocking=True,
+        )
+        assert _state(hass, "active_holiday") == "Christmas"
+
+    # Without default colors the button is unavailable and the action errors.
+    await hass.config_entries.async_unload(entry.entry_id)
+    plain = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
+    )
+    with patch(DARK, return_value=True):
+        await _start(hass, plain)
+    assert hass.states.get(button).state == "unavailable"
+    with pytest.raises(ServiceValidationError):
+        await plain.runtime_data.async_use_default_tonight()

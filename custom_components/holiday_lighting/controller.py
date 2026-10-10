@@ -48,6 +48,7 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import target as target_helpers
 from homeassistant.helpers.event import (
@@ -339,6 +340,8 @@ class HolidayLightingController:
         self.theme = THEME_AUTO
         self.on_at: datetime | None = None
         self.done_night: date | None = None
+        # Night the default colors were chosen over the holiday (button).
+        self.default_night: date | None = None
         self.offset = 0
         self._snapshot: dict[str, dict[str, Any]] = {}
 
@@ -367,6 +370,8 @@ class HolidayLightingController:
                 self.on_at = dt_util.parse_datetime(on_at)
             if done := stored.get("done_night"):
                 self.done_night = date.fromisoformat(done)
+            if default := stored.get("default_night"):
+                self.default_night = date.fromisoformat(default)
             self.offset = stored.get("offset", 0)
             self._snapshot = stored.get("snapshot", {})
             if (key := stored.get("night_key")) and stored.get("overridden"):
@@ -455,6 +460,21 @@ class HolidayLightingController:
     async def async_set_theme(self, theme: str) -> None:
         """Choose a holiday by subentry id, or THEME_AUTO."""
         self.theme = theme if theme in self.holidays else THEME_AUTO
+        # Picking a theme takes over from "default colors tonight".
+        self.default_night = None
+        await self.async_evaluate()
+
+    async def async_use_default_tonight(self) -> None:
+        """Show the default colors instead of the holiday until tomorrow.
+
+        Switches right away if the lights are on; otherwise tonight starts
+        with the default colors. Off rules still apply.
+        """
+        if self.default_holiday is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_default_colors"
+            )
+        self.default_night = night_of(dt_util.now())
         await self.async_evaluate()
 
     async def async_force_on(self, holiday_id: str | None = None) -> None:
@@ -463,6 +483,7 @@ class HolidayLightingController:
             self.enabled = True
             if holiday_id:
                 self.theme = holiday_id
+                self.default_night = None
             now = dt_util.now()
             await self._async_refresh_calendars(now)
             holiday = self._selected_holiday(now)
@@ -516,6 +537,8 @@ class HolidayLightingController:
         for tonight, so other nights show what the dates alone pick.
         """
         tonight = night_of(dt_util.now())
+        if day == tonight and self._default_tonight(day):
+            return self.default_holiday
         holidays = [
             h.as_mapping()
             for h in self.holidays.values()
@@ -694,7 +717,13 @@ class HolidayLightingController:
             await self._async_save()
         self._notify()
 
+    def _default_tonight(self, night: date) -> bool:
+        """Whether the default colors were chosen for this night."""
+        return self.default_holiday is not None and self.default_night == night
+
     def _selected_holiday(self, now: datetime) -> Holiday | None:
+        if self._default_tonight(night_of(now)):
+            return self.default_holiday
         if self.theme != THEME_AUTO:
             return self.holidays.get(self.theme)
         # Use the night's date so New Year's Eve still counts at 00:30.
@@ -1238,6 +1267,9 @@ class HolidayLightingController:
                 "theme": self.theme,
                 "on_at": self.on_at.isoformat() if self.on_at else None,
                 "done_night": self.done_night.isoformat() if self.done_night else None,
+                "default_night": (
+                    self.default_night.isoformat() if self.default_night else None
+                ),
                 "offset": self.offset,
                 "snapshot": self._snapshot,
                 "night_key": self._night_key.isoformat() if self._night_key else None,

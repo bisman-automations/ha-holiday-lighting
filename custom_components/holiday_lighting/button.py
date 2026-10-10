@@ -1,4 +1,4 @@
-"""Start, stop and next buttons for Holiday Lighting."""
+"""Buttons for Holiday Lighting."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ class HolidayButtonDescription(ButtonEntityDescription):
     """A button and what it does."""
 
     press: Callable[[HolidayLightingController], Awaitable[None]]
+    needs_default_colors: bool = False
 
 
 BUTTONS: tuple[HolidayButtonDescription, ...] = (
@@ -30,6 +31,11 @@ BUTTONS: tuple[HolidayButtonDescription, ...] = (
     ),
     HolidayButtonDescription(
         key="next", press=lambda controller: controller.async_advance()
+    ),
+    HolidayButtonDescription(
+        key="default",
+        press=lambda controller: controller.async_use_default_tonight(),
+        needs_default_colors=True,
     ),
 )
 
@@ -59,6 +65,14 @@ class HolidayLightingButton(HolidayLightingEntity, ButtonEntity):
         """Initialise the button."""
         super().__init__(controller, description.key)
         self.entity_description = description
+
+    @property
+    def available(self) -> bool:
+        """The default-colors button needs default colors to be set."""
+        return not (
+            self.entity_description.needs_default_colors
+            and self.controller.default_holiday is None
+        )
 
     async def async_press(self) -> None:
         """Handle the press."""

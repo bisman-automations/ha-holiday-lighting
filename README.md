@@ -109,6 +109,7 @@ Every holiday also has:
 | `button.holiday_lighting_turn_on_now` | Turn on now, ignoring darkness. Off rules still apply. |
 | `button.holiday_lighting_next_colors` | Move the colors forward one step. |
 | `button.holiday_lighting_turn_off_for_tonight` | Turn off and stay off for the rest of tonight. |
+| `button.holiday_lighting_use_default_colors_tonight` | Show the default colors instead of tonight's holiday. Switches right away if the lights are on; otherwise tonight starts with them. The sensors and calendar show the default colors for tonight, then go back to the holiday the next day (from noon). Picking a theme cancels it. Unavailable if no default colors are set. |
 
 ## Services
 

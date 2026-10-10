@@ -429,6 +429,9 @@
       },
       "next": {
         "name": "Next colors"
+      },
+      "default": {
+        "name": "Use default colors tonight"
       }
     },
     "calendar": {
@@ -443,6 +446,9 @@
     },
     "unknown_holiday": {
       "message": "No holiday named {holiday}."
+    },
+    "no_default_colors": {
+      "message": "No default colors are set. Add them in Holiday Lighting's settings."
     }
   },
   "services": {

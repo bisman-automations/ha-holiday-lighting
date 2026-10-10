@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-10
+
+### Added
+
+- **Use default colors tonight** button. It shows the default colors instead of tonight's holiday. If the lights are on, they switch right away; if not, tonight starts with the default colors. Active holiday, Lights off at, the color sensors, and the schedule calendar all show the default colors for tonight, then go back to the holiday the next day. Picking a theme cancels it. The button is unavailable if no default colors are set.
+- The example dashboard card has a **Default** button.
+
 ## [1.7.4] - 2026-10-09
 
 ### Changed
@@ -172,7 +179,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.4...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.1...v1.7.2

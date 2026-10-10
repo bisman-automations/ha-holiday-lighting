@@ -45,6 +45,15 @@ cards:
           target:
             entity_id: button.holiday_lighting_next_colors
       - type: button
+        entity: button.holiday_lighting_use_default_colors_tonight
+        name: Default
+        icon_height: 32px
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.holiday_lighting_use_default_colors_tonight
+      - type: button
         entity: button.holiday_lighting_turn_off_for_tonight
         name: "Off"
         icon_height: 32px
