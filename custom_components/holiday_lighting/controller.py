@@ -552,6 +552,36 @@ class HolidayLightingController:
         """When the lights will turn off, if they are on and a limit is set."""
         return self.deadline_for(self.running)
 
+    def next_off(self) -> datetime | None:
+        """When the lights next turn off, for display.
+
+        While the lights are on, the real deadline. Otherwise the hard off
+        time of the next night they will run (tonight, unless tonight is
+        already done), recalculated with the duration once they turn on.
+        """
+        if not self.enabled or not self.use_schedule:
+            return None
+        if self.running is not None:
+            return self.deadline
+        now = dt_util.now()
+        night = night_of(now)
+        for offset in range(8):
+            day = night + timedelta(days=offset)
+            if offset == 0 or self.theme != THEME_AUTO:
+                holiday = self._selected_holiday(now)
+            else:
+                holiday = self.planned_for(day)
+            if holiday is None:
+                continue
+            off_time = self.off_time_for(holiday, day)
+            if off_time is None:
+                continue
+            off_at = hard_off_at(day, off_time, now.tzinfo)
+            if offset == 0 and (self.status == STATUS_DONE or now >= off_at):
+                continue
+            return off_at
+        return None
+
     def upcoming(self) -> tuple[Holiday, date] | None:
         """The next dated holiday to start, and when."""
         result = upcoming_holiday(

@@ -260,6 +260,11 @@ async def test_full_night(
             == "waiting_for_dark"
         )
         assert not turn_on
+        # Before dark: tonight's hard off time.
+        off_at = hass.states.get("sensor.holiday_lighting_lights_off_at").state
+        assert dt_util.parse_datetime(off_at) == datetime(
+            2026, 12, 24, 23, 0, tzinfo=tz
+        )
 
         # Gets dark at 17:30
         dark = True
@@ -299,6 +304,11 @@ async def test_full_night(
             hass.states.get("sensor.holiday_lighting_status").state
             == "done_for_tonight"
         )
+        # Done for tonight: tomorrow night's hard off time, not unknown.
+        off_at = hass.states.get("sensor.holiday_lighting_lights_off_at").state
+        assert dt_util.parse_datetime(off_at) == datetime(
+            2026, 12, 25, 23, 0, tzinfo=tz
+        )
 
         # Still dark, still the same night: stays off.
         turn_on.clear()
@@ -313,6 +323,11 @@ async def test_full_night(
         await hass.async_block_till_done(wait_background_tasks=True)
         assert turn_on
         assert hass.states.get("sensor.holiday_lighting_status").state == "on"
+        # Recalculated when the lights turn on: 5 hours from 17:30.
+        off_at = hass.states.get("sensor.holiday_lighting_lights_off_at").state
+        assert dt_util.parse_datetime(off_at) == datetime(
+            2026, 12, 25, 22, 30, tzinfo=tz
+        )
 
 
 async def test_hard_off_time_cuts_duration_short(

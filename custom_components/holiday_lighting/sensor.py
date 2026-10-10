@@ -120,8 +120,8 @@ class LightsOffSensor(HolidayLightingEntity, SensorEntity):
 
     @property
     def native_value(self) -> datetime | None:
-        """Scheduled off time."""
-        return self.controller.deadline
+        """Tonight's off time, or the next night's once tonight is done."""
+        return self.controller.next_off()
 
 
 class LightColorSensor(HolidayLightingEntity, SensorEntity):
