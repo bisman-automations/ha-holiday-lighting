@@ -36,6 +36,13 @@ async def async_setup_entry(
     async_add_entities([HolidayScheduleCalendar(entry.runtime_data, "schedule")])
 
 
+def _summary(name: str, start: date, end: date) -> str:
+    """Event title; the event covering tonight says so."""
+    if start <= night_of(dt_util.now()) <= end:
+        return f"Holiday Lights for Tonight: {name}"
+    return f"Holiday Lights: {name}"
+
+
 def _description(
     controller: HolidayLightingController, holiday: Holiday, day: date
 ) -> str:
@@ -71,7 +78,7 @@ class HolidayScheduleCalendar(HolidayLightingEntity, CalendarEntity):
                 CalendarEvent(
                     start=start,
                     end=end + timedelta(days=1),  # all-day end is exclusive
-                    summary=holiday.name,
+                    summary=_summary(holiday.name, start, end),
                     description=_description(controller, holiday, start),
                     uid=f"{holiday.id}-{start.isoformat()}",
                 )
@@ -123,7 +130,9 @@ class HolidayScheduleCalendar(HolidayLightingEntity, CalendarEntity):
                 events[0] = CalendarEvent(
                     start=start,
                     end=events[0].end,
-                    summary=events[0].summary,
+                    summary=_summary(
+                        holiday.name, start, events[0].end - timedelta(days=1)
+                    ),
                     description=events[0].description,
                     uid=f"{holiday.id}-{start.isoformat()}",
                 )

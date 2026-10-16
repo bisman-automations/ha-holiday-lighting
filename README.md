@@ -122,7 +122,7 @@ Every holiday also has:
 
 ## Schedule calendar
 
-`calendar.holiday_lighting_schedule` shows what will light up each night, using the same rules that pick the lights, so overlaps are already resolved. For example, Advent runs through Christmas Eve, broken up by Immaculate Conception and Gaudete Sunday. Each event's details list the colors, effect, off time, and number of lights. Nights with no holiday show **Default colors** if you've set them, or nothing if not.
+`calendar.holiday_lighting_schedule` shows what will light up each night, using the same rules that pick the lights, so overlaps are already resolved. For example, Advent runs through Christmas Eve, broken up by Immaculate Conception and Gaudete Sunday. Each event is titled `Holiday Lights: <holiday>`, or `Holiday Lights for Tonight: <holiday>` for the event covering tonight. Its details list the colors, effect, off time, and number of lights. Nights with no holiday show **Default colors** if you've set them, or nothing if not.
 
 Find it in the **Calendar** panel in the sidebar, or add a Calendar card to a dashboard. Calendar holidays only appear for tonight, since they depend on events that are checked each evening. A theme picked with the Theme select isn't shown; the calendar shows the automatic schedule.
 

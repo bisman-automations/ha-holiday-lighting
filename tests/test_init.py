@@ -1599,7 +1599,7 @@ async def test_schedule_calendar(
     await _start(hass, entry)
     state = hass.states.get("calendar.holiday_lighting_schedule")
     assert state.state == "on"  # an all-day event covers today
-    assert state.attributes["message"] == "Halloween"
+    assert state.attributes["message"] == "Holiday Lights for Tonight: Halloween"
 
     response = await hass.services.async_call(
         "calendar",
@@ -1613,7 +1613,20 @@ async def test_schedule_calendar(
         return_response=True,
     )
     events = response["calendar.holiday_lighting_schedule"]["events"]
-    got = [(e["summary"], e["start"], e["end"]) for e in events]
+    # Titles say "for Tonight" only on the event covering tonight.
+    assert events[0]["summary"] == "Holiday Lights for Tonight: Halloween"
+    assert events[1]["summary"] == "Holiday Lights: All Saints' Day"
+    prefixes = ("Holiday Lights for Tonight: ", "Holiday Lights: ")
+    got = [
+        (
+            next(
+                e["summary"][len(p) :] for p in prefixes if e["summary"].startswith(p)
+            ),
+            e["start"],
+            e["end"],
+        )
+        for e in events
+    ]
     assert got == [
         ("Halloween", "2026-10-01", "2026-11-01"),
         ("All Saints' Day", "2026-11-01", "2026-11-02"),
@@ -1633,7 +1646,7 @@ async def test_schedule_calendar(
         ("Christmas", "2026-12-25", "2026-12-27"),
         ("Default colors", "2026-12-27", "2027-01-01"),
     ]
-    advent = next(e for e in events if e["summary"] == "Advent")
+    advent = next(e for e in events if e["summary"] == "Holiday Lights: Advent")
     assert "Colors: Purple, Purple, Purple, Rose" in advent["description"]
     assert "Effect: Chase, every 30s" in advent["description"]
     assert "Off at 11:00 PM" in advent["description"]
@@ -1649,7 +1662,7 @@ async def test_schedule_calendar_without_default(
     await _start(hass, entry)
     state = hass.states.get("calendar.holiday_lighting_schedule")
     assert state.state == "off"
-    assert state.attributes["message"] == "Halloween"  # the next event
+    assert state.attributes["message"] == "Holiday Lights: Halloween"  # the next event
     assert state.attributes["start_time"].startswith("2026-10-01")
 
 
@@ -1674,7 +1687,7 @@ async def test_default_colors_tonight_button(
         assert (
             hass.states.get("calendar.holiday_lighting_schedule")
             .attributes["message"]
-            .startswith("Christmas")
+            .startswith("Holiday Lights for Tonight: Christmas")
         )
 
         turn_on.clear()
@@ -1690,7 +1703,7 @@ async def test_default_colors_tonight_button(
         assert (
             hass.states.get("calendar.holiday_lighting_schedule")
             .attributes["message"]
-            .startswith("Default colors")
+            .startswith("Holiday Lights for Tonight: Default colors")
         )
 
         # Still tonight after midnight.
@@ -1704,7 +1717,7 @@ async def test_default_colors_tonight_button(
         assert (
             hass.states.get("calendar.holiday_lighting_schedule")
             .attributes["message"]
-            .startswith("Christmas")
+            .startswith("Holiday Lights for Tonight: Christmas")
         )
     with patch(DARK, return_value=True):
         await _tick(hass, freezer, datetime(2026, 12, 6, 18, 0, tzinfo=tz))
