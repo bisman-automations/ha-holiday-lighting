@@ -391,6 +391,9 @@
           }
         }
       },
+      "lights_on_at": {
+        "name": "Lights on at"
+      },
       "lights_off_at": {
         "name": "Lights off at"
       },

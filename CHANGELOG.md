@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-16
+
+### Added
+
+- **Lights on at** sensor (`sensor.holiday_lighting_lights_on_at`). It shows when the lights come on tonight: the time they came on once they're on, or the predicted sunset-based time before that. After the lights are done for the night it shows tomorrow's predicted time. It's unknown when it can't be predicted (lux sensor only, or no holiday that night).
+
 ## [1.8.1] - 2026-10-16
 
 ### Fixed
@@ -185,7 +191,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.3...v1.7.4

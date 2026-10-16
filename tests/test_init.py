@@ -1734,3 +1734,50 @@ async def test_default_colors_tonight_button(
     assert hass.states.get(button).state == "unavailable"
     with pytest.raises(ServiceValidationError):
         await plain.runtime_data.async_use_default_tonight()
+
+
+async def test_lights_on_at_predicts_then_tracks(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Lights on at: predicted from sunset, the real time once on, then tomorrow."""
+    freezer.move_to(datetime(2026, 12, 5, 13, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+    async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
+    )
+    with patch(DARK, return_value=False):
+        await _start(hass, entry)
+        predicted = dt_util.parse_datetime(_state(hass, "lights_on_at"))
+        # Sunset-based: December afternoon, not midday or night.
+        assert predicted.astimezone(tz).date() == datetime(2026, 12, 5).date()
+        assert 16 <= predicted.astimezone(tz).hour < 18
+
+    # Once the lights come on, the sensor shows the real time.
+    with patch(DARK, return_value=True):
+        await _tick(hass, freezer, datetime(2026, 12, 5, 18, 0, tzinfo=tz))
+        assert _state(hass, "status") == "on"
+        on_at = dt_util.parse_datetime(_state(hass, "lights_on_at"))
+        assert on_at == datetime(2026, 12, 5, 18, 0, tzinfo=tz)
+
+    # Done for tonight: tomorrow's on time is predicted again.
+    with patch(DARK, return_value=True):
+        await _tick(hass, freezer, datetime(2026, 12, 5, 23, 30, tzinfo=tz))
+        assert _state(hass, "status") == "done_for_tonight"
+        tomorrow = dt_util.parse_datetime(_state(hass, "lights_on_at"))
+        assert tomorrow.astimezone(tz).date() == datetime(2026, 12, 6).date()
+        assert 16 <= tomorrow.astimezone(tz).hour < 18
+
+
+async def test_lights_on_at_unknown_without_holiday(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """No holiday in the next week (and no default colors): nothing to predict."""
+    freezer.move_to(datetime(2026, 8, 1, 13, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
+    )
+    with patch(DARK, return_value=False):
+        await _start(hass, entry)
+    assert _state(hass, "lights_on_at") == "unknown"

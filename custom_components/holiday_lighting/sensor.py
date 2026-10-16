@@ -49,6 +49,7 @@ async def async_setup_entry(
         [
             StatusSensor(controller, "status"),
             ActiveHolidaySensor(controller, "active_holiday"),
+            LightsOnSensor(controller, "lights_on_at"),
             LightsOffSensor(controller, "lights_off_at"),
             *light_sensors,
         ]
@@ -113,6 +114,17 @@ class ActiveHolidaySensor(HolidayLightingEntity, SensorEntity):
             attrs["next_holiday"] = upcoming[0].name
             attrs["next_holiday_start"] = upcoming[1].isoformat()
         return attrs
+
+
+class LightsOnSensor(HolidayLightingEntity, SensorEntity):
+    """When tonight's lights come on."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Time the lights came on, or when they're predicted to tonight."""
+        return self.controller.next_on()
 
 
 class LightsOffSensor(HolidayLightingEntity, SensorEntity):

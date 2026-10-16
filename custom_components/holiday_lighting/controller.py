@@ -6,7 +6,7 @@ import asyncio
 import logging
 import random
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -581,6 +581,18 @@ class HolidayLightingController:
         """
         return self.running or self._selected_holiday(dt_util.now())
 
+    def _nights_ahead(self, now: datetime) -> Iterator[tuple[date, Holiday]]:
+        """Each upcoming night and the holiday it would show, soonest first."""
+        night = night_of(now)
+        for offset in range(8):
+            day = night + timedelta(days=offset)
+            if offset == 0 or self.theme != THEME_AUTO:
+                holiday = self._selected_holiday(now)
+            else:
+                holiday = self.planned_for(day)
+            if holiday is not None:
+                yield day, holiday
+
     def next_off(self) -> datetime | None:
         """When the lights next turn off, for display.
 
@@ -593,23 +605,93 @@ class HolidayLightingController:
         if self.running is not None:
             return self.deadline
         now = dt_util.now()
-        night = night_of(now)
-        for offset in range(8):
-            day = night + timedelta(days=offset)
-            if offset == 0 or self.theme != THEME_AUTO:
-                holiday = self._selected_holiday(now)
-            else:
-                holiday = self.planned_for(day)
-            if holiday is None:
-                continue
+        for day, holiday in self._nights_ahead(now):
             off_time = self.off_time_for(holiday, day)
             if off_time is None:
                 continue
             off_at = hard_off_at(day, off_time, now.tzinfo)
-            if offset == 0 and (self.status == STATUS_DONE or now >= off_at):
+            if day == night_of(now) and (self.status == STATUS_DONE or now >= off_at):
                 continue
             return off_at
         return None
+
+    def next_on(self) -> datetime | None:
+        """When the lights come on tonight (or the next night they will).
+
+        Once they are on, the time they came on. Before that, the first
+        moment the sun drops below the dark threshold within that night's
+        window. Unknown when it can't be predicted: a lux sensor alone, or
+        no holiday for the night.
+        """
+        if not self.enabled:
+            return None
+        if self.running is not None:
+            return self.on_at
+        if not self.use_schedule:
+            return None
+        now = dt_util.now()
+        night = night_of(now)
+        for day, holiday in self._nights_ahead(now):
+            if self.done_night == day:
+                continue
+            off_time = self.off_time_for(holiday, day)
+            if day == night and not can_start(now, off_time):
+                continue
+            if off_time is None:
+                window_end = datetime.combine(
+                    day + timedelta(days=1), time(12), tzinfo=now.tzinfo
+                )
+            else:
+                window_end = hard_off_at(day, off_time, now.tzinfo)
+            window_start = (
+                now
+                if day == night
+                else datetime.combine(day, time(12), tzinfo=now.tzinfo)
+            )
+            if (dark := self._first_dark_between(window_start, window_end)) is not None:
+                return dark
+        return None
+
+    def _sun_elevation_at(self, when: datetime) -> float:
+        """Calculated sun elevation at a moment (not the sun source entity)."""
+        # astral directly: HA's get_astral_location helper is deprecated.
+        from astral import Observer  # noqa: PLC0415
+        from astral.sun import elevation  # noqa: PLC0415
+
+        observer = Observer(
+            self.hass.config.latitude,
+            self.hass.config.longitude,
+            self.hass.config.elevation,
+        )
+        return elevation(observer, when)
+
+    def _first_dark_between(self, start: datetime, end: datetime) -> datetime | None:
+        """When the sun first drops below the dark threshold, to the minute."""
+        if self.dark_source not in (DARK_SUN, DARK_EITHER):
+            return None
+        if start >= end:
+            return None
+        if self._sun_elevation_at(start) < self.sun_elevation:
+            return start
+        step = timedelta(minutes=10)
+        below_at = None
+        above_at = start
+        cursor = start
+        while cursor < end:
+            cursor = min(cursor + step, end)
+            if self._sun_elevation_at(cursor) < self.sun_elevation:
+                below_at = cursor
+                break
+            above_at = cursor
+        if below_at is None:
+            return None
+        while below_at - above_at > timedelta(minutes=1):
+            middle = above_at + (below_at - above_at) / 2
+            if self._sun_elevation_at(middle) < self.sun_elevation:
+                below_at = middle
+            else:
+                above_at = middle
+        return below_at
 
     def upcoming(self) -> tuple[Holiday, date] | None:
         """The next dated holiday to start, and when."""
@@ -657,17 +739,7 @@ class HolidayLightingController:
         """Sun elevation now: the chosen entity, else calculated locally."""
         if (from_source := self.sun_elevation_from_source()) is not None:
             return from_source
-        # Calculated with astral directly: HA's get_astral_location helper is
-        # deprecated (removal in HA Core 2027.7).
-        from astral import Observer  # noqa: PLC0415
-        from astral.sun import elevation  # noqa: PLC0415
-
-        observer = Observer(
-            self.hass.config.latitude,
-            self.hass.config.longitude,
-            self.hass.config.elevation,
-        )
-        return elevation(observer, dt_util.now())
+        return self._sun_elevation_at(dt_util.now())
 
     def hard_off_tonight(self) -> datetime | None:
         """Tonight's hard off time, for display."""
