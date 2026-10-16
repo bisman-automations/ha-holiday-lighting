@@ -57,7 +57,6 @@ from homeassistant.helpers.event import (
     async_track_time_interval,
 )
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.sun import get_astral_location
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -658,8 +657,17 @@ class HolidayLightingController:
         """Sun elevation now: the chosen entity, else calculated locally."""
         if (from_source := self.sun_elevation_from_source()) is not None:
             return from_source
-        location, elevation = get_astral_location(self.hass)
-        return location.solar_elevation(dt_util.now(), elevation)
+        # Calculated with astral directly: HA's get_astral_location helper is
+        # deprecated (removal in HA Core 2027.7).
+        from astral import Observer  # noqa: PLC0415
+        from astral.sun import elevation  # noqa: PLC0415
+
+        observer = Observer(
+            self.hass.config.latitude,
+            self.hass.config.longitude,
+            self.hass.config.elevation,
+        )
+        return elevation(observer, dt_util.now())
 
     def hard_off_tonight(self) -> datetime | None:
         """Tonight's hard off time, for display."""

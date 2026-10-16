@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-16
+
+### Fixed
+
+- Home Assistant logged a deprecation warning for every sun calculation (`get_astral_location` is removed in HA Core 2027.7). Solar elevation is now calculated directly with astral. Results are unchanged.
+
 ## [1.8.0] - 2026-10-10
 
 ### Added
@@ -179,7 +185,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.7.2...v1.7.3
