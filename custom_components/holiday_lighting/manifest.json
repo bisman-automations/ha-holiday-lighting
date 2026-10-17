@@ -3,12 +3,12 @@
   "name": "Holiday Lighting",
   "codeowners": ["@donavanbecker"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["frontend", "http", "panel_custom"],
   "documentation": "https://github.com/bisman-automations/ha-holiday-lighting",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/bisman-automations/ha-holiday-lighting/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.9.2"
+  "version": "1.10.0"
 }

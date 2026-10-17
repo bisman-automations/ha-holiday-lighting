@@ -162,6 +162,10 @@ recorder:
 
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml) is a ready-made card using only built-in cards: the Enabled switch, tonight's holiday and colors, when the lights turn off, the next holiday, a theme picker, and On / Next / Off buttons. In a dashboard, choose **Edit → Add card → Manual** and paste it in.
 
+## Sidebar panel
+
+**Holiday Lights** in the sidebar shows the lights as bulbs, each in the color it's showing now (dim when off, striped when under manual control). It updates as the lights change. Below the bulbs are the status, the active holiday, and when the lights come on and go off. Everyone with access to Home Assistant can see it. It reads the integration's own sensors, so it works without any extra setup.
+
 ## Repairs and diagnostics
 
 - **Repairs** (Settings → System → Repairs) flag a holiday whose lights are unavailable when it runs. They clear on their own once fixed.

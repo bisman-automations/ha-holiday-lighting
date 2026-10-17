@@ -19,6 +19,7 @@ from .const import (
     SERVICE_STOP,
 )
 from .controller import HolidayLightingController
+from .panel import async_setup_panel, async_teardown_panel
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
@@ -86,6 +87,7 @@ async def async_setup_entry(
     entry.runtime_data = controller
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_setup_panel(hass)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
 
     async def _started(_hass: HomeAssistant) -> None:
@@ -106,5 +108,6 @@ async def async_unload_entry(
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        async_teardown_panel(hass)
         await entry.runtime_data.async_unload()
     return unloaded

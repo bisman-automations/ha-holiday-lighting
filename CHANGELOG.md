@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-17
+
+### Added
+
+- **Holiday Lights** sidebar panel. It shows one bulb per light in the same color the light is showing now, glowing and fading as the lights change. Below the bulbs are the status, active holiday, and when the lights come on and go off. It's visible to all users.
+- A loading state in the panel: shimmering placeholders until the integration's data arrives.
+
 ## [1.9.2] - 2026-10-17
 
 ### Added
@@ -203,7 +210,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.2...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.2...v1.10.0
 [1.9.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.1...v1.9.0
