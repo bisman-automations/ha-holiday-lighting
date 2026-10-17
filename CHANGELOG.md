@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-10-17
+
+### Fixed
+
+- The Holiday Lights panel said "No lights are set up" when lights were off. It now lists every light, including ones that are off.
+
 ## [1.10.0] - 2026-10-17
 
 ### Added
@@ -210,7 +216,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.2...v1.10.0
 [1.9.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.0...v1.9.1

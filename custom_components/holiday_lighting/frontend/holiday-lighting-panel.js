@@ -4,7 +4,7 @@
  * Reads the integration's own sensors from hass.states (no extra API):
  *   sensor.holiday_lighting_status, sensor.holiday_lighting_active_holiday,
  *   sensor.holiday_lighting_lights_on_at, sensor.holiday_lighting_lights_off_at,
- *   and one light-color sensor per light (attributes: light, hex, shown_as).
+ *   and one light-color sensor per light (attribute: light; hex while lit).
  */
 
 const STATUS = "sensor.holiday_lighting_status";
@@ -94,7 +94,10 @@ const timeText = (state) => {
   return d.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
 };
 
-const isLight = (s) => s && s.attributes && "light" in s.attributes && "hex" in s.attributes;
+// Light color sensors carry the light's entity id. "hex" is only present while
+// a color is showing, so don't rely on it to find them.
+const isLight = (s) =>
+  s && s.entity_id.startsWith("sensor.holiday_lighting_") && typeof s.attributes?.light === "string";
 
 class HolidayLightingPanel extends HTMLElement {
   constructor() {
