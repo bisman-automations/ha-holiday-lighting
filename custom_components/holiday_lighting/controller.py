@@ -28,7 +28,6 @@ from homeassistant.components.light import (
 from homeassistant.components.light import (
     DOMAIN as LIGHT_DOMAIN,
 )
-from homeassistant.components.logbook import async_log_entry
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_DOMAIN,
@@ -95,6 +94,7 @@ from .const import (
     DEFAULT_SUN_ELEVATION,
     DEFAULT_TRANSITION,
     DOMAIN,
+    EVENT_LOGBOOK_ENTRY,
     KIND_CALENDAR,
     KIND_YEARLY,
     MODE_FADE,
@@ -940,12 +940,14 @@ class HolidayLightingController:
         await self._async_apply(holiday)
         # One Activity entry per light when a holiday starts (not every color step).
         for entity_id in self._controlled(holiday):
-            async_log_entry(
-                self.hass,
-                "Holiday Lighting",
-                f"turned on for {holiday.name}",
-                DOMAIN,
-                entity_id,
+            self.hass.bus.async_fire(
+                EVENT_LOGBOOK_ENTRY,
+                {
+                    "name": "Holiday Lighting",
+                    "message": f"turned on for {holiday.name}",
+                    "domain": DOMAIN,
+                    "entity_id": entity_id,
+                },
             )
         if holiday.mode != MODE_STATIC and len(holiday.colors) > 1:
             self._rotation_unsub = async_track_time_interval(

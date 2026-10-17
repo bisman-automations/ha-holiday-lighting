@@ -16,6 +16,7 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_capture_events,
     async_fire_time_changed,
     async_mock_service,
 )
@@ -1807,11 +1808,10 @@ async def test_turn_on_is_logged_to_activity(
     entry = _entry_with(
         _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
     )
-    with (
-        patch(DARK, return_value=True),
-        patch(f"{CONTROLLER}.async_log_entry") as log,
-    ):
+    entries = async_capture_events(hass, "logbook_entry")
+    with patch(DARK, return_value=True):
         await _start(hass, entry)
-    assert all(c.args[3] == "holiday_lighting" for c in log.call_args_list)
-    assert sorted(c.args[4] for c in log.call_args_list) == sorted(LIGHTS)
-    assert all(c.args[2] == "turned on for Christmas" for c in log.call_args_list)
+    await hass.async_block_till_done()
+    assert sorted(e.data["entity_id"] for e in entries) == sorted(LIGHTS)
+    assert all(e.data["domain"] == DOMAIN for e in entries)
+    assert all(e.data["message"] == "turned on for Christmas" for e in entries)

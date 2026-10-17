@@ -109,3 +109,6 @@ SERVICE_ADVANCE: Final = "advance"
 ATTR_HOLIDAY: Final = "holiday"
 
 STORAGE_VERSION: Final = 1
+
+# Activity (logbook) event; same name the logbook helper fires.
+EVENT_LOGBOOK_ENTRY: Final = "logbook_entry"
