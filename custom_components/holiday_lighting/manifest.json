@@ -1,9 +1,14 @@
 {
   "domain": "holiday_lighting",
   "name": "Holiday Lighting",
-  "codeowners": ["@donavanbecker"],
+  "codeowners": [
+    "@donavanbecker"
+  ],
   "config_flow": true,
   "dependencies": [],
+  "after_dependencies": [
+    "logbook"
+  ],
   "documentation": "https://github.com/bisman-automations/ha-holiday-lighting",
   "integration_type": "service",
   "iot_class": "calculated",
