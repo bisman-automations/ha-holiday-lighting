@@ -23,7 +23,8 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.holiday_lighting.const import DOMAIN
 
 LIGHTS = ["light.porch", "light.tree", "light.garage"]
-DARK = "custom_components.holiday_lighting.controller.HolidayLightingController.is_dark"
+CONTROLLER = "custom_components.holiday_lighting.controller"
+DARK = f"{CONTROLLER}.HolidayLightingController.is_dark"
 
 
 @pytest.fixture
@@ -1794,3 +1795,23 @@ async def test_lights_on_at_unknown_without_holiday(
     with patch(DARK, return_value=False):
         await _start(hass, entry)
     assert _state(hass, "lights_on_at") == "unknown"
+
+
+async def test_turn_on_is_logged_to_activity(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
+) -> None:
+    """Each light gets an Activity entry when a holiday turns them on."""
+    freezer.move_to(datetime(2026, 12, 5, 13, 0, tzinfo=tz))
+    async_mock_service(hass, "light", "turn_on")
+    async_mock_service(hass, "light", "turn_off")
+    entry = _entry_with(
+        _holiday("Christmas", kind="yearly", start="12-01", end="12-26")
+    )
+    with (
+        patch(DARK, return_value=True),
+        patch(f"{CONTROLLER}.async_log_entry") as log,
+    ):
+        await _start(hass, entry)
+    assert all(c.args[3] == "holiday_lighting" for c in log.call_args_list)
+    assert sorted(c.args[4] for c in log.call_args_list) == sorted(LIGHTS)
+    assert all(c.args[2] == "turned on for Christmas" for c in log.call_args_list)

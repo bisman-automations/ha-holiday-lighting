@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-10-17
+
+### Added
+
+- Activity (logbook) entries when a holiday turns lights on: "Holiday Lighting turned on for <holiday>" on each light. Previously Activity showed only "Light: Turn on light" with no link to this integration.
+
 ## [1.9.1] - 2026-10-16
 
 ### Changed
@@ -197,7 +203,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.2...HEAD
+[1.9.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.8.0...v1.8.1

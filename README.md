@@ -120,6 +120,10 @@ Every holiday also has:
 | `holiday_lighting.stop` | Turn off and stay off for the rest of tonight. |
 | `holiday_lighting.advance` | Move the rotation forward one step. |
 
+## Activity
+
+When a holiday turns lights on, each light gets an entry in Home Assistant's Activity, such as "Holiday Lighting turned on for Halloween". Color steps aren't logged, so Activity doesn't fill up during a show. Turning lights off isn't logged.
+
 ## Schedule calendar
 
 `calendar.holiday_lighting_schedule` shows what will light up each night, using the same rules that pick the lights, so overlaps are already resolved. For example, Advent runs through Christmas Eve, broken up by Immaculate Conception and Gaudete Sunday. Each event is titled `Holiday Lights: <holiday>`, or `Holiday Lights for Tonight: <holiday>` for the event covering tonight. Its details list the colors, effect, off time, and number of lights. Nights with no holiday show **Default colors** if you've set them, or nothing if not.
