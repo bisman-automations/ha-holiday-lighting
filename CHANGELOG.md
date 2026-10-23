@@ -229,7 +229,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.2...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.3...HEAD
 [1.10.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.2...v1.10.3
 [1.10.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...v1.10.1
