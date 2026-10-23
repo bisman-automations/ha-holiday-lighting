@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.3] - 2026-10-23
+
+### Changed
+
+- The Holiday Lights panel names each bulb after its light (for example "Front Entrance Light") instead of the sensor name, and wraps long names.
+- The status shows as a readable label, such as "Waiting For Dark" instead of `waiting_for_dark`.
+
 ## [1.10.2] - 2026-10-18
 
 ### Changed
@@ -223,6 +230,7 @@ First release.
 - Requires Home Assistant 2026.2 or newer.
 
 [Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.2...HEAD
+[1.10.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.2...v1.10.3
 [1.10.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.9.2...v1.10.0
