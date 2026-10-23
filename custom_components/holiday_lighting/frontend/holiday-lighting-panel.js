@@ -47,15 +47,15 @@ const STYLE = `
     background: repeating-linear-gradient(45deg, #2a2e3b 0 6px, #4a4f60 6px 12px);
   }
   .label {
-    margin-top: 8px; font-size: 13px; text-align: center;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
-    opacity: 0.9;
+    margin-top: 8px; font-size: 13px; line-height: 1.25; text-align: center;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; max-width: 100%; opacity: 0.9;
   }
   .sub { font-size: 12px; opacity: 0.65; text-align: center; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
   .card {
     background: var(--card-background-color, #fff);
-    color: var(--primary-text-color);
+    color: var(--primary-text-color, #1c1c1c);
     border-radius: 12px; padding: 14px 16px;
     box-shadow: var(--ha-card-box-shadow, none);
     border: 1px solid var(--divider-color, #e0e0e0);
@@ -96,6 +96,21 @@ const timeText = (state) => {
 
 // Light color sensors carry the light's entity id. "hex" is only present while
 // a color is showing, so don't rely on it to find them.
+// "waiting_for_dark" -> "Waiting For Dark"
+const toLabel = (value) =>
+  String(value ?? "")
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+
+// The light's own name (for example "Front Entrance Light"), not the sensor's name.
+const lightName = (states, entityId) => {
+  const friendly = states[entityId]?.attributes?.friendly_name;
+  if (friendly) return friendly;
+  return toLabel(entityId.split(".").pop());
+};
+
 const isLight = (s) =>
   s && s.entity_id.startsWith("sensor.holiday_lighting_") && typeof s.attributes?.light === "string";
 
@@ -184,15 +199,15 @@ class HolidayLightingPanel extends HTMLElement {
     const key = JSON.stringify([
       status.state, active?.state, active?.attributes?.next_holiday,
       onAt?.state, offAt?.state,
-      lights.map((l) => [l.attributes.light, l.state, l.attributes.hex, l.attributes.shown_as, l.attributes.holiday ?? null]),
+      lights.map((l) => [l.attributes.light, lightName(states, l.attributes.light), l.state, l.attributes.hex, l.attributes.shown_as, l.attributes.holiday ?? null]),
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
 
-    this._renderBulbs(lights);
+    this._renderBulbs(lights, states);
     const activeName = active?.state && active.state !== "unknown" ? active.state : "No holiday";
     const cards = [
-      ["Status", status.state],
+      ["Status", toLabel(status.state)],
       ["Active holiday", activeName],
       ["Lights on at", timeText(onAt)],
       ["Lights off at", timeText(offAt)],
@@ -202,7 +217,7 @@ class HolidayLightingPanel extends HTMLElement {
       .join("");
   }
 
-  _renderBulbs(lights) {
+  _renderBulbs(lights, states) {
     if (lights.length === 0) {
       this._stage.innerHTML = '<div class="msg">No lights are set up for Holiday Lighting.</div>';
       this._bulbs.clear();
@@ -232,11 +247,10 @@ class HolidayLightingPanel extends HTMLElement {
       el.classList.toggle("manual", light.state === "Manual");
       if (lit) el.style.setProperty("--c", light.attributes.hex);
       else el.style.removeProperty("--c");
-      const name = light.attributes.friendly_name || light.attributes.light;
+      const name = lightName(states, light.attributes.light);
       el.querySelector(".label").textContent = name;
       el.querySelector(".label").title = name;
-      const sub = light.state === "Off" ? "Off" : light.state;
-      el.querySelector(".sub").textContent = sub;
+      el.querySelector(".sub").textContent = light.state;
     }
   }
 }
