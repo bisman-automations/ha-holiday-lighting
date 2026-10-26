@@ -5,5 +5,3 @@
 pytest-homeassistant-custom-component==0.13.316
 # CI installs the requirements of the core integrations the tests use
 # (frontend) at the versions this Home Assistant expects.
-# The tests serialize the options schema.
-voluptuous-serialize

@@ -6,5 +6,3 @@ pytest-homeassistant-custom-component
 ruff==0.17.2
 # Test-only libraries (the integration's runtime requirements are in
 # manifest.json) go below.
-# The tests serialize the options schema; Home Assistant 2026.10 no longer installs it.
-voluptuous-serialize

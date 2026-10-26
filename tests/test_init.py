@@ -12,16 +12,16 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
 )
-import voluptuous_serialize
 
 from custom_components.holiday_lighting.const import DOMAIN
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
+
+from .flow_schema import serialize_schema
 
 LIGHTS = ["light.porch", "light.tree", "light.garage"]
 CONTROLLER = "custom_components.holiday_lighting.controller"
@@ -96,9 +96,7 @@ async def test_add_and_edit_holiday_subentry(hass: HomeAssistant) -> None:
     assert result["step_id"] == "holiday"
     # The form serializes for the frontend, with a sortable picker list for
     # colors and a reorderable light list.
-    schema = voluptuous_serialize.convert(
-        result["data_schema"], custom_serializer=cv.custom_serializer
-    )
+    schema = serialize_schema(result["data_schema"])
     fields = {field["name"]: field for field in schema}
     colors_field = fields["colors"]["selector"]["object"]
     assert colors_field["multiple"] is True
@@ -152,12 +150,7 @@ async def test_add_and_edit_holiday_subentry(hass: HomeAssistant) -> None:
 
     # Editing shows the saved colors, in order, and saves a new order.
     result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
-    shown = {
-        f["name"]: f
-        for f in voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    }
+    shown = {f["name"]: f for f in serialize_schema(result["data_schema"])}
     assert [item["name"] for item in shown["colors"]["default"]] == [
         "Blue",
         "#FFFFFF",
@@ -187,12 +180,7 @@ async def test_edit_holiday_saved_by_1_0_0(hass: HomeAssistant) -> None:
     sub_id = next(iter(entry.subentries))
     assert "color_names" not in entry.subentries[sub_id].data
     result = await entry.start_subentry_reconfigure_flow(hass, sub_id)
-    shown = {
-        f["name"]: f
-        for f in voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    }
+    shown = {f["name"]: f for f in serialize_schema(result["data_schema"])}
     assert shown["colors"]["default"] == [
         {"name": "#FF0000", "color": [255, 0, 0]},
         {"name": "#00FF00", "color": [0, 255, 0]},
@@ -587,12 +575,7 @@ async def test_add_custom_kinds(hass: HomeAssistant) -> None:
 
     # Reconfigure keeps the kind and shows its fields
     result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
-    names = {
-        f["name"]
-        for f in voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    }
+    names = {f["name"] for f in serialize_schema(result["data_schema"])}
     assert {"calendar", "keyword", "schedule_override"} <= names
     assert "start" not in names
 
@@ -1097,12 +1080,7 @@ async def test_options_flow_offers_sun_source(hass: HomeAssistant) -> None:
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    fields = {
-        f["name"]: f
-        for f in voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    }
+    fields = {f["name"]: f for f in serialize_schema(result["data_schema"])}
     assert fields["sun_source"]["selector"]["entity"]["domain"] == ["sun", "sensor"]
     options = dict(entry.options) | {"sun_source": "sun.sun"}
     result = await hass.config_entries.options.async_configure(
@@ -1148,9 +1126,7 @@ def _frontend_missing(schema: list[dict], data: dict | None, prefix: str = "") -
 def test_preset_form_submits_as_shown(preset: str) -> None:
     """Regression: a hidden required field blocked every holiday form."""
     data = _preset_data(preset, LIGHTS)
-    schema = voluptuous_serialize.convert(
-        _holiday_schema(data["kind"], data), custom_serializer=cv.custom_serializer
-    )
+    schema = serialize_schema(_holiday_schema(data["kind"], data))
     assert _frontend_missing(schema, _frontend_initial(schema)) == []
 
 
@@ -1166,18 +1142,13 @@ def test_preset_form_submits_as_shown(preset: str) -> None:
     ],
 )
 def test_custom_form_only_asks_for_user_fields(kind: str, user_fields: list) -> None:
-    schema = voluptuous_serialize.convert(
-        _holiday_schema(kind, {"lights": LIGHTS}),
-        custom_serializer=cv.custom_serializer,
-    )
+    schema = serialize_schema(_holiday_schema(kind, {"lights": LIGHTS}))
     assert _frontend_missing(schema, _frontend_initial(schema)) == user_fields
 
 
 def test_edit_form_shows_saved_schedule_override() -> None:
     saved = _preset_data("new_years", LIGHTS) | {"off_time": "01:00:00"}
-    schema = voluptuous_serialize.convert(
-        _holiday_schema(saved["kind"], saved), custom_serializer=cv.custom_serializer
-    )
+    schema = serialize_schema(_holiday_schema(saved["kind"], saved))
     assert _frontend_initial(schema)["schedule_override"] == {
         "all_night": False,
         "off_time": "01:00:00",
@@ -1188,9 +1159,7 @@ async def _preset_options(hass: HomeAssistant, entry) -> list[str]:
     result = await hass.config_entries.subentries.async_init(
         (entry.entry_id, "holiday"), context={"source": config_entries.SOURCE_USER}
     )
-    schema = voluptuous_serialize.convert(
-        result["data_schema"], custom_serializer=cv.custom_serializer
-    )
+    schema = serialize_schema(result["data_schema"])
     hass.config_entries.subentries.async_abort(result["flow_id"])
     return schema[0]["selector"]["select"]["options"]
 
@@ -1215,11 +1184,7 @@ async def test_add_holiday_hides_presets_already_added(hass: HomeAssistant) -> N
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], {"preset": "halloween"}
     )
-    form = _frontend_initial(
-        voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    )
+    form = _frontend_initial(serialize_schema(result["data_schema"]))
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], form | {"name": "Spooky Season"}
     )
@@ -1231,11 +1196,7 @@ async def test_add_holiday_hides_presets_already_added(hass: HomeAssistant) -> N
 
     # Editing keeps the preset link.
     result = await entry.start_subentry_reconfigure_flow(hass, sub.subentry_id)
-    form = _frontend_initial(
-        voluptuous_serialize.convert(
-            result["data_schema"], custom_serializer=cv.custom_serializer
-        )
-    )
+    form = _frontend_initial(serialize_schema(result["data_schema"]))
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], form | {"name": "Halloween Night"}
     )
@@ -1521,12 +1482,7 @@ async def test_default_colors_when_no_holiday(
         # Set white as the default through the settings form.
         turn_on.clear()
         result = await hass.config_entries.options.async_init(entry.entry_id)
-        fields = {
-            f["name"]: f
-            for f in voluptuous_serialize.convert(
-                result["data_schema"], custom_serializer=cv.custom_serializer
-            )
-        }
+        fields = {f["name"]: f for f in serialize_schema(result["data_schema"])}
         assert fields["default_colors"]["selector"]["object"]["multiple"] is True
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -1548,12 +1504,7 @@ async def test_default_colors_when_no_holiday(
 
         # Editing the settings shows the saved default colors.
         result = await hass.config_entries.options.async_init(entry.entry_id)
-        fields = {
-            f["name"]: f
-            for f in voluptuous_serialize.convert(
-                result["data_schema"], custom_serializer=cv.custom_serializer
-            )
-        }
+        fields = {f["name"]: f for f in serialize_schema(result["data_schema"])}
         assert fields["default_colors"]["description"]["suggested_value"] == [
             {"name": "White", "color": [255, 255, 255]}
         ]
