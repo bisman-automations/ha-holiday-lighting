@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -11,13 +12,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
-from .const import (
-    ATTR_HOLIDAY,
-    DOMAIN,
-    SERVICE_ADVANCE,
-    SERVICE_START,
-    SERVICE_STOP,
-)
+from .const import ATTR_HOLIDAY, DOMAIN, SERVICE_ADVANCE, SERVICE_START, SERVICE_STOP
 from .controller import HolidayLightingController
 from .panel import async_setup_panel, async_teardown_panel
 

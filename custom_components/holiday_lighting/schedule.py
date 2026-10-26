@@ -6,10 +6,10 @@ can be unit tested directly.
 
 from __future__ import annotations
 
-import random
-import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
+import random
+import re
 from typing import Any
 
 from homeassistant.util.color import color_name_to_rgb

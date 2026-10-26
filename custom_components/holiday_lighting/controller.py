@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import random
 from collections import deque
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+import logging
+import random
 from typing import Any
 
 from homeassistant.components.light import (
@@ -23,10 +23,8 @@ from homeassistant.components.light import (
     ATTR_SUPPORTED_COLOR_MODES,
     ATTR_TRANSITION,
     ATTR_XY_COLOR,
-    ColorMode,
-)
-from homeassistant.components.light import (
     DOMAIN as LIGHT_DOMAIN,
+    ColorMode,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -41,16 +39,9 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import (
-    CALLBACK_TYPE,
-    Context,
-    Event,
-    HomeAssistant,
-    callback,
-)
+from homeassistant.core import CALLBACK_TYPE, Context, Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers import target as target_helpers
+from homeassistant.helpers import issue_registry as ir, target as target_helpers
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,

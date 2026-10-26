@@ -3,11 +3,10 @@
 import json
 from pathlib import Path
 
-from homeassistant.components.frontend import DATA_PANELS
-from homeassistant.core import HomeAssistant
-
 from custom_components.holiday_lighting.const import DOMAIN
 from custom_components.holiday_lighting.panel import PANEL_PATH
+from homeassistant.components.frontend import DATA_PANELS
+from homeassistant.core import HomeAssistant
 
 from .test_init import _entry, _start
 

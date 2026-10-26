@@ -4,9 +4,17 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import pytest
-import voluptuous_serialize
 from freezegun.api import FrozenDateTimeFactory
+import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_fire_time_changed,
+    async_mock_service,
+)
+import voluptuous_serialize
+
+from custom_components.holiday_lighting.const import DOMAIN
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
@@ -14,14 +22,6 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_capture_events,
-    async_fire_time_changed,
-    async_mock_service,
-)
-
-from custom_components.holiday_lighting.const import DOMAIN
 
 LIGHTS = ["light.porch", "light.tree", "light.garage"]
 CONTROLLER = "custom_components.holiday_lighting.controller"
@@ -438,17 +438,13 @@ async def test_services(
 
 # --- 1.2 ----------------------------------------------------------------------
 
-from homeassistant.core import Context, SupportsResponse  # noqa: E402
-from homeassistant.helpers import issue_registry as ir  # noqa: E402
-
-from custom_components.holiday_lighting.config_flow import (  # noqa: E402
-    _holiday_schema,
-    _preset_data,
-)
+from custom_components.holiday_lighting.config_flow import _holiday_schema, _preset_data  # noqa: E402
 from custom_components.holiday_lighting.diagnostics import (  # noqa: E402
     async_get_config_entry_diagnostics,
 )
 from custom_components.holiday_lighting.presets import PRESETS  # noqa: E402
+from homeassistant.core import Context, SupportsResponse  # noqa: E402
+from homeassistant.helpers import issue_registry as ir  # noqa: E402
 
 HOLIDAY_BASE = {
     "colors": ["#FF0000", "#00FF00", "#FFFFFF"],
@@ -1257,10 +1253,11 @@ async def test_buttons_and_dashboard_card(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, tz
 ) -> None:
     """The example card's entities exist, its template renders, buttons work."""
-    import re
     from pathlib import Path
+    import re
 
     import yaml
+
     from homeassistant.helpers.template import Template
 
     freezer.move_to(datetime(2026, 12, 5, 13, 0, tzinfo=tz))  # daytime
