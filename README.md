@@ -1,11 +1,15 @@
 <p align="center">
-  <img src="custom_components/holiday_lighting/brand/icon@2x.png" alt="Holiday Lighting" width="160">
+  <img src="https://raw.githubusercontent.com/bisman-automations/ha-holiday-lighting/main/custom_components/holiday_lighting/brand/icon.png" alt="Holiday Lighting icon" width="128">
 </p>
 
 # Holiday Lighting
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
-[![Validate](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yaml/badge.svg)](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yaml)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.2%2B-blue.svg)](https://www.home-assistant.io/)
+[![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-holiday-lighting)](https://github.com/bisman-automations/ha-holiday-lighting/releases)
+[![Test](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/test.yml/badge.svg)](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/test.yml)
+[![Validate](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yml)
+[![License](https://img.shields.io/github/license/bisman-automations/ha-holiday-lighting)](LICENSE)
 
 Home Assistant integration to create holiday color themes and rotate them across your existing lights.
 
@@ -25,15 +29,14 @@ Home Assistant integration to create holiday color themes and rotate them across
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-holiday-lighting&category=integration)
 
-Or add it by hand:
+1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-holiday-lighting` as an **Integration**.
+2. Download **Holiday Lighting** and restart Home Assistant.
 
-1. In HACS, open the menu → **Custom repositories**.
-2. Add `https://github.com/bisman-automations/ha-holiday-lighting` as an **Integration**.
-3. Install **Holiday Lighting** and restart Home Assistant.
+Requires **Home Assistant 2026.2 or newer**.
 
 ### Manual
 
-Copy `custom_components/holiday_lighting` into your `config/custom_components` folder and restart.
+Download `holiday_lighting.zip` from the [latest release](https://github.com/bisman-automations/ha-holiday-lighting/releases/latest), unzip it into `config/custom_components/holiday_lighting/`, and restart Home Assistant.
 
 ## Setup
 
@@ -175,13 +178,43 @@ recorder:
 
 The integration ships its own icon in `custom_components/holiday_lighting/brand/`, with light and dark versions. Home Assistant 2026.3 and newer shows it automatically; older versions show a generic icon.
 
+## Troubleshooting
+
+### Diagnostics and debug logs
+
+When something goes wrong, download diagnostics from **Settings → Devices & services → Holiday Lighting → ⋮ → Download diagnostics** and check the file before you share it.
+
+For debug logs, use **Enable debug logging** on the integration page, or add this to `configuration.yaml` and restart:
+
+```yaml
+logger:
+  logs:
+    custom_components.holiday_lighting: debug
+```
+
+Then open an [issue](https://github.com/bisman-automations/ha-holiday-lighting/issues/new/choose) with the diagnostics, the log, and your Home Assistant and Holiday Lighting versions.
+
 ## Development
 
+Tests run inside a real Home Assistant through
+[pytest-homeassistant-custom-component](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component).
+You need Python 3.14 for the current Home Assistant.
+
 ```bash
+python3.14 -m venv .venv && . .venv/bin/activate
 pip install -r requirements_test.txt
+ruff check . && ruff format --check .
 pytest
 ```
 
+To test against the oldest supported Home Assistant (2026.2), use Python 3.13 and
+`pip install -r requirements_test_min.txt` instead.
+
+CI runs the same checks on every push and pull request, on both Home Assistant
+versions, plus hassfest, HACS validation and the shared repo standards, using the
+workflows in [bisman-automations/.github](https://github.com/bisman-automations/.github).
+Releases are drafted from [CHANGELOG.md](CHANGELOG.md); see [CLAUDE.md](CLAUDE.md).
+
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

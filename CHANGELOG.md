@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project are documented here.
+All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -85,16 +85,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.1] - 2026-10-08
 
+### Changed
+
+- Changes made outside Home Assistant (for example, in a bulb's own app) are no longer detected as manual changes.
+
 ### Fixed
 
 - **Turn off for tonight** left some lights on. With slow lights, late color reports from earlier steps looked like someone changing the lights by hand, so those lights were marked "Manual" and skipped. Manual changes are now detected from light commands sent by something other than this integration (the app, an automation, a remote, a voice assistant), not from reported colors.
 - **Turn off for tonight** now turns off every holiday light, including ones changed by hand. The nightly schedule still leaves those alone.
 - Lights could come back on after turning off, when a slow color command reached a bulb late. For a minute after turning off, a light turned back on by one of this integration's own late commands is turned off again.
 - **Turn off for tonight** no longer waits behind a color step stuck on slow lights.
-
-### Changed
-
-- Changes made outside Home Assistant (for example, in a bulb's own app) are no longer detected as manual changes.
 
 ## [1.7.0] - 2026-10-07
 
@@ -223,7 +223,7 @@ First release.
 - **Resume after restart.** State is saved, so a restart picks up with the same off time.
 - **HACS support,** with CI for hassfest, HACS validation, and tests.
 
-### Known limitations
+**Known limitations:**
 
 - Easter and Thanksgiving presets use a fixed date window; adjust the dates each year.
 - One schedule applies to all holidays.
