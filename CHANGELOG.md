@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.4] - 2026-10-26
+
+### Changed
+
+- The README follows the same layout as the other bisman-automations integrations: a button that opens it in HACS, a button that starts setup, and troubleshooting steps for debug logs and diagnostics.
+- Each release now includes `holiday_lighting.zip` for installing without HACS.
+
+### Fixed
+
+- The tests failed on Home Assistant 2026.10, which changed how forms are sent to the browser. The forms themselves worked. The tests now check every setup, options, holiday and edit form the same way Home Assistant sends it, on the oldest supported release and the newest.
+
 ## [1.10.3] - 2026-10-23
 
 ### Changed
@@ -229,7 +240,8 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
-[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.3...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.4...HEAD
+[1.10.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.3...v1.10.4
 [1.10.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.2...v1.10.3
 [1.10.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.0...v1.10.1
