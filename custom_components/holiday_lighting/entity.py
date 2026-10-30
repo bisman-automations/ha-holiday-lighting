@@ -24,6 +24,8 @@ class HolidayLightingEntity(Entity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry_id)},
             name=controller.entry.title,
+            manufacturer="Holiday Lighting",
+            model="Holiday light schedule",
             entry_type=DeviceEntryType.SERVICE,
         )
 

@@ -1763,3 +1763,18 @@ async def test_turn_on_is_logged_to_activity(
     assert sorted(e.data["entity_id"] for e in entries) == sorted(LIGHTS)
     assert all(e.data["domain"] == DOMAIN for e in entries)
     assert all(e.data["message"] == "turned on for Christmas" for e in entries)
+
+
+async def test_the_device_names_its_manufacturer_and_model(
+    hass: HomeAssistant,
+) -> None:
+    """The device list shows Holiday Lighting, not "unknown"."""
+    from homeassistant.helpers import device_registry as dr
+
+    entry = _entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    (device,) = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert device.manufacturer == "Holiday Lighting"
+    assert device.model == "Holiday light schedule"
