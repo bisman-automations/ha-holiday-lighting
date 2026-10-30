@@ -5,7 +5,7 @@
 # Holiday Lighting
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.2%2B-blue.svg)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8%2B-blue.svg)](https://www.home-assistant.io/)
 [![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-holiday-lighting)](https://github.com/bisman-automations/ha-holiday-lighting/releases)
 [![Test](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/test.yml/badge.svg)](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/test.yml)
 [![Validate](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-holiday-lighting/actions/workflows/validate.yml)
@@ -32,7 +32,7 @@ Home Assistant integration to create holiday color themes and rotate them across
 1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-holiday-lighting` as an **Integration**.
 2. Download **Holiday Lighting** and restart Home Assistant.
 
-Requires **Home Assistant 2026.2 or newer**.
+Requires **Home Assistant 2026.8 or newer**.
 
 ### Manual
 
@@ -176,7 +176,7 @@ recorder:
 
 ## Icon
 
-The integration ships its own icon in `custom_components/holiday_lighting/brand/`, with light and dark versions. Home Assistant 2026.3 and newer shows it automatically; older versions show a generic icon.
+The integration ships its own icon in `custom_components/holiday_lighting/brand/`, with light and dark versions. Home Assistant shows it automatically.
 
 ## Troubleshooting
 
@@ -207,7 +207,7 @@ ruff check . && ruff format --check .
 pytest
 ```
 
-To test against the oldest supported Home Assistant (2026.2), use Python 3.13 and
+To test against the oldest supported Home Assistant (2026.8), use Python 3.14 and
 `pip install -r requirements_test_min.txt` instead.
 
 CI runs the same checks on every push and pull request, on both Home Assistant

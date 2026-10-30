@@ -24,7 +24,7 @@ A HACS custom integration (`holiday_lighting`) for Home Assistant. Holidays (dat
 Run the shared checks at the end of this file. The `frontend` integration's
 requirements are needed for the tests (CI: `core-requirements: frontend`).
 
-`requirements_test_min.txt` runs Home Assistant 2026.2.3 and `requirements_test.txt`
+`requirements_test_min.txt` runs Home Assistant 2026.8.3 and `requirements_test.txt`
 the newest release. Newer Home Assistant versions can break at import time in ways
 these tests don't catch. In 1.7.1, `homeassistant.helpers.service` lost a function
 that was only found in 2026.10. When a new version is out, check its release notes

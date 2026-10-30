@@ -1290,7 +1290,7 @@ class HolidayLightingController:
             self._commanded.pop(entity_id, None)
         self._notify_lights()
         self._notify()
-        self.hass.async_create_task(self._async_save())
+        self.entry.async_create_task(self.hass, self._async_save())
 
     # --- repairs -----------------------------------------------------------
 
