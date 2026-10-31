@@ -67,6 +67,10 @@ from .const import (
     CONF_LUX_SENSOR,
     CONF_LUX_THRESHOLD,
     CONF_MODE,
+    CONF_MUSIC,
+    CONF_MUSIC_ENABLED,
+    CONF_MUSIC_PLAYERS,
+    CONF_MUSIC_VOLUME,
     CONF_NAME,
     CONF_OFF_TIME,
     CONF_ON_DURATION,
@@ -91,6 +95,7 @@ from .const import (
     MODE_FADE,
     MODE_ROTATE,
     MODE_STATIC,
+    MUSIC_DOMAIN,
     STATUS_DISABLED,
     STATUS_DONE,
     STATUS_NO_HOLIDAY,
@@ -100,6 +105,7 @@ from .const import (
     SUBENTRY_HOLIDAY,
     THEME_AUTO,
 )
+from .music import music_request
 from .schedule import (
     LIGHT_COLOR,
     LIGHT_DIMMABLE,
@@ -117,6 +123,7 @@ from .schedule import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+MEDIA_PLAYER_DOMAIN = "media_player"
 
 EVALUATE_INTERVAL = timedelta(minutes=1)
 CALENDAR_REFRESH = timedelta(minutes=15)
@@ -157,6 +164,9 @@ class Holiday:
     all_night: bool = False
     calendar: str | None = None
     keyword: str | None = None
+    # Theme music: a playlist name or URI, or None for one found by name.
+    music: str | None = None
+    music_enabled: bool = True
 
     def as_mapping(self) -> dict[str, Any]:
         """Mapping form used by the schedule helpers."""
@@ -277,6 +287,8 @@ class HolidayLightingController:
                 all_night=bool(data.get(CONF_ALL_NIGHT, False)),
                 calendar=data.get(CONF_CALENDAR),
                 keyword=(data.get(CONF_KEYWORD) or "").strip() or None,
+                music=(data.get(CONF_MUSIC) or "").strip() or None,
+                music_enabled=bool(data.get(CONF_MUSIC_ENABLED, True)),
             )
 
         options = entry.options
@@ -325,6 +337,10 @@ class HolidayLightingController:
         self.off_time = _parse_time(options.get(CONF_OFF_TIME))
         self.weekend_off_time = _parse_time(options.get(CONF_WEEKEND_OFF_TIME))
         self.respect_manual: bool = options.get(CONF_RESPECT_MANUAL, True)
+        # Music Assistant players for theme music; none: no music.
+        self.music_players: list[str] = list(options.get(CONF_MUSIC_PLAYERS) or [])
+        volume = options.get(CONF_MUSIC_VOLUME)
+        self.music_volume: int | None = int(volume) if volume else None
 
         # Persisted state
         self.enabled = False
@@ -348,6 +364,12 @@ class HolidayLightingController:
         self.slow_light_commands = 0
         self.skipped_steps = 0
         self._unavailable_strikes: dict[str, int] = {}
+        # The holiday whose theme music is playing, and the last problem.
+        self.music_holiday: str | None = None
+        self.music_error: str | None = None
+        # After a restart or a settings change, speakers already playing are
+        # carrying on with tonight's music; don't start it over.
+        self._music_resume = True
 
     # --- lifecycle ---------------------------------------------------------
 
@@ -768,6 +790,13 @@ class HolidayLightingController:
             ),
             "overridden_tonight": sorted(self.night.overridden),
             "snapshot_lights": sorted(self._snapshot),
+            "music_players": len(self.music_players),
+            "music_playing_for": (
+                self.holidays[self.music_holiday].name
+                if self.music_holiday in self.holidays
+                else None
+            ),
+            "music_error": self.music_error,
         }
 
     # --- evaluation --------------------------------------------------------
@@ -940,6 +969,7 @@ class HolidayLightingController:
                     "entity_id": entity_id,
                 },
             )
+        self._start_music(holiday)
         if holiday.mode != MODE_STATIC and len(holiday.colors) > 1:
             self._rotation_unsub = async_track_time_interval(
                 self.hass,
@@ -1170,6 +1200,7 @@ class HolidayLightingController:
         # The night the lights were on is done, which may be an earlier
         # night than now if Home Assistant missed the off time.
         lit_night = night_of(self.on_at) if self.on_at else night_of(now)
+        self._stop_music()
         self._snapshot.clear()
         self._commanded.clear()
         self.light_colors.clear()
@@ -1185,6 +1216,7 @@ class HolidayLightingController:
         self._stop_watching_lights()
         if restore:
             await self._async_restore(list(self._snapshot))
+        self._stop_music()
         self._snapshot.clear()
         self._commanded.clear()
         self.light_colors.clear()
@@ -1193,6 +1225,109 @@ class HolidayLightingController:
         self.on_at = None
         self.offset = 0
         self._notify_lights()
+
+    # --- theme music -------------------------------------------------------
+
+    @callback
+    def _start_music(self, holiday: Holiday) -> None:
+        """Play the holiday's theme music while its lights are on.
+
+        Runs in the background so the lights never wait on the speakers.
+        Nothing happens without players, or for a holiday with music off
+        (the default colors never play music).
+        """
+        wanted = (
+            self.music_players and holiday.music_enabled and holiday.id in self.holidays
+        )
+        if not wanted:
+            self._stop_music()
+            return
+        if self.music_holiday == holiday.id:
+            return
+        self.music_holiday = holiday.id
+        resume, self._music_resume = self._music_resume, False
+        if resume and all(
+            (state := self.hass.states.get(player)) is not None
+            and state.state == "playing"
+            for player in self.music_players
+        ):
+            return
+        self.entry.async_create_background_task(
+            self.hass, self._async_play_music(holiday), f"{DOMAIN} theme music"
+        )
+
+    async def _async_play_music(self, holiday: Holiday) -> None:
+        if not self.hass.services.has_service(MUSIC_DOMAIN, "play_media"):
+            self.music_error = "Music Assistant isn't set up"
+            _LOGGER.warning(
+                "Can't play theme music for %s: Music Assistant isn't set up",
+                holiday.name,
+            )
+            return
+        media_id, media_type = music_request(holiday.name, holiday.music)
+        players = list(self.music_players)
+        context = self._context()
+        try:
+            if self.music_volume is not None:
+                await self.hass.services.async_call(
+                    MEDIA_PLAYER_DOMAIN,
+                    "volume_set",
+                    {
+                        ATTR_ENTITY_ID: players,
+                        "volume_level": self.music_volume / 100,
+                    },
+                    blocking=True,
+                    context=context,
+                )
+            data: dict[str, Any] = {
+                ATTR_ENTITY_ID: players,
+                "media_id": media_id,
+                "enqueue": "replace",
+            }
+            if media_type:
+                data["media_type"] = media_type
+            await self.hass.services.async_call(
+                MUSIC_DOMAIN, "play_media", data, blocking=True, context=context
+            )
+            # Loop the playlist for as long as the lights are on.
+            await self.hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                "repeat_set",
+                {ATTR_ENTITY_ID: players, "repeat": "all"},
+                blocking=True,
+                context=context,
+            )
+        except Exception as err:  # noqa: BLE001 - a speaker must never stop the lights
+            self.music_error = f"{media_id}: {err}"
+            _LOGGER.warning(
+                "Couldn't play theme music %s for %s: %s", media_id, holiday.name, err
+            )
+            return
+        self.music_error = None
+
+    @callback
+    def _stop_music(self) -> None:
+        """Stop the theme music this integration started."""
+        if self.music_holiday is None:
+            return
+        self.music_holiday = None
+        if not self.music_players:
+            return
+        self.entry.async_create_background_task(
+            self.hass, self._async_stop_music(), f"{DOMAIN} stop theme music"
+        )
+
+    async def _async_stop_music(self) -> None:
+        try:
+            await self.hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                "media_stop",
+                {ATTR_ENTITY_ID: list(self.music_players)},
+                blocking=True,
+                context=self._context(),
+            )
+        except Exception as err:  # noqa: BLE001 - a speaker must never stop the lights
+            _LOGGER.warning("Couldn't stop the theme music: %s", err)
 
     def _take_snapshot(self, entity_ids: list[str]) -> None:
         for entity_id in entity_ids:

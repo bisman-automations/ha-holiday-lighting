@@ -146,6 +146,24 @@ Find it in the **Calendar** panel in the sidebar, or add a Calendar card to a da
 
 In the integration's settings, **Default colors** are shown on your default lights on nights with no holiday, on the same dark-to-off schedule. For example, pick white to light the front of the house every night, with holidays taking over on their dates. Leave it empty to keep the lights off on non-holiday nights. The Active holiday sensor shows **Default colors** while they're on.
 
+## Theme music
+
+Holiday Lighting can play music for the holiday on [Music Assistant](https://www.home-assistant.io/integrations/music_assistant/) speakers while the lights are on.
+
+1. In **Configure**, pick the **Theme music speakers**. Only Music Assistant players are offered. Leave it empty for no music.
+2. Optionally set a **Theme music volume**. The speakers are set to it each time the music starts; leave it empty to keep their volume.
+
+When a holiday's lights turn on, its music starts on those speakers and repeats until the lights turn off. If the holiday changes during the evening, the music changes with it. Next colors doesn't restart it. The default colors don't play music. After Home Assistant restarts, or you save a setting, speakers that are still playing carry on rather than starting the music over.
+
+Each holiday's **Theme music** section (collapsed on its form) chooses what plays:
+
+- **Music to play** left empty: a playlist found by the holiday's name, for example *Halloween music*, from the music providers in Music Assistant.
+- A playlist name, such as *Spooky Hits*: that playlist.
+- A Music Assistant link, such as `library://playlist/12` or a provider's playlist link: exactly that.
+- **Play theme music** off: that holiday stays quiet.
+
+The lights never wait on the speakers. If Music Assistant isn't set up, or can't find the music, the lights carry on and the reason is logged and shown in the diagnostics (`music_error`). Speakers that another integration limits, such as Media Mgmt's rules or quiet times, follow those rules.
+
 ## Lights without color
 
 Every light in a holiday does something it can show:
@@ -176,7 +194,7 @@ recorder:
 
 ## Sidebar panel
 
-**Holiday Lights** in the sidebar shows the lights as bulbs, each in the color it's showing now (dim when off, striped when under manual control). It updates as the lights change. Below the bulbs are the status, the active holiday, and when the lights come on and go off. Everyone with access to Home Assistant can see it. It reads the integration's own sensors, so it works without any extra setup.
+**Holiday Lights** in the sidebar shows the lights as bulbs, each in the color it's showing now (dim when off, striped when under manual control). It updates as the lights change. Under the bulbs are the buttons: **Turn on now**, **Next colors**, **Turn off for tonight** and **Use default colors tonight**, which do the same as the button entities above. A button that can't be used right now, such as Use default colors tonight with no default colors set, is greyed out. Below them are the status, the active holiday, and when the lights come on and go off. Everyone with access to Home Assistant can see it. It reads the integration's own sensors, so it works without any extra setup.
 
 ## Repairs and diagnostics
 

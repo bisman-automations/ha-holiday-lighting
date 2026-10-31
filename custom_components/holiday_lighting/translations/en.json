@@ -65,7 +65,9 @@
           "weekend_off_time": "Weekend hard off time",
           "respect_manual": "Respect manual changes",
           "sun_source": "Sun elevation source",
-          "default_colors": "Default colors"
+          "default_colors": "Default colors",
+          "music_players": "Theme music speakers",
+          "music_volume": "Theme music volume"
         },
         "data_description": {
           "default_lights": "Used for new holidays and for holidays with no lights selected. Drag to reorder.",
@@ -79,7 +81,9 @@
           "weekend_off_time": "Used on Friday and Saturday nights instead of the hard off time. Leave empty to use the same time every night.",
           "respect_manual": "If someone changes or turns off a holiday light through Home Assistant (the app, an automation, a remote, a voice assistant), leave that light alone for the rest of the night. Turn off for tonight still turns off every holiday light.",
           "sun_source": "Optional. Use the Sun integration (sun.sun) or any sensor reporting the sun's elevation in degrees. Empty calculates it from your home location. Falls back to the calculation if the entity is unavailable.",
-          "default_colors": "Shown on the default lights on nights with no holiday, on the same schedule. Leave empty to keep the lights off when there's no holiday."
+          "default_colors": "Shown on the default lights on nights with no holiday, on the same schedule. Leave empty to keep the lights off when there's no holiday.",
+          "music_players": "Music Assistant speakers that play each holiday's theme music while its lights are on. It stops when the lights turn off. Leave empty for no music.",
+          "music_volume": "Set the speakers to this volume when the music starts. Leave empty to keep their volume."
         }
       }
     },
@@ -156,6 +160,18 @@
                 "on_duration": "Overrides the main duration for this holiday.",
                 "off_time": "Overrides the main and weekend off times for this holiday. A time before noon means after midnight."
               }
+            },
+            "theme_music": {
+              "name": "Theme music",
+              "description": "Plays on the theme music speakers chosen in the settings, while this holiday's lights are on.",
+              "data": {
+                "music_enabled": "Play theme music",
+                "music": "Music to play"
+              },
+              "data_description": {
+                "music_enabled": "Turn off to keep this holiday quiet.",
+                "music": "A playlist name, or a Music Assistant link such as library://playlist/12. Leave empty to play a playlist found by the holiday's name, such as \"Halloween music\"."
+              }
             }
           }
         },
@@ -213,6 +229,18 @@
                 "all_night": "Ignore the duration and off time; turn off when it is light again.",
                 "on_duration": "Overrides the main duration for this holiday.",
                 "off_time": "Overrides the main and weekend off times for this holiday. A time before noon means after midnight."
+              }
+            },
+            "theme_music": {
+              "name": "Theme music",
+              "description": "Plays on the theme music speakers chosen in the settings, while this holiday's lights are on.",
+              "data": {
+                "music_enabled": "Play theme music",
+                "music": "Music to play"
+              },
+              "data_description": {
+                "music_enabled": "Turn off to keep this holiday quiet.",
+                "music": "A playlist name, or a Music Assistant link such as library://playlist/12. Leave empty to play a playlist found by the holiday's name, such as \"Halloween music\"."
               }
             }
           }

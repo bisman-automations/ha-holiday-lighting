@@ -99,6 +99,13 @@ STATUS_ON: Final = "on"
 STATUS_DONE: Final = "done_for_tonight"
 STATUS_NO_HOLIDAY: Final = "no_holiday"
 
+# Theme music on Music Assistant speakers
+CONF_MUSIC_PLAYERS: Final = "music_players"
+CONF_MUSIC_VOLUME: Final = "music_volume"
+CONF_MUSIC: Final = "music"  # a holiday's playlist name or URI; blank: automatic
+CONF_MUSIC_ENABLED: Final = "music_enabled"  # a holiday plays theme music
+MUSIC_DOMAIN: Final = "music_assistant"
+
 # Theme select values
 THEME_AUTO: Final = "auto"
 

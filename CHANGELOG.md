@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-10-31
+
+### Added
+
+- **Theme music.** Holidays can play music on Music Assistant speakers while their lights are on. Pick the speakers, and optionally a volume, in **Configure**. The music starts when the lights turn on, repeats, changes with the holiday, and stops when the lights turn off. Each holiday plays a playlist found by its name, such as *Halloween music*, unless you choose a playlist or link in its new **Theme music** section, or turn music off for it. With no speakers picked, nothing changes.
+- **Buttons on the Holiday Lights dashboard.** Turn on now, Next colors, Turn off for tonight and Use default colors tonight are now under the bulbs, so you don't have to look for the button entities. A button that can't be used right now is greyed out. If one doesn't work, the reason shows under the buttons.
+
 ## [1.11.2] - 2026-10-30
 
 ### Fixed
@@ -253,6 +260,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
+[1.12.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.11.2...v1.12.0
 [1.11.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.10.3...v1.11.0

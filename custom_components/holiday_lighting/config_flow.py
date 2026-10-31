@@ -62,6 +62,10 @@ from .const import (
     CONF_LUX_THRESHOLD,
     CONF_MODE,
     CONF_MONTH,
+    CONF_MUSIC,
+    CONF_MUSIC_ENABLED,
+    CONF_MUSIC_PLAYERS,
+    CONF_MUSIC_VOLUME,
     CONF_NAME,
     CONF_OFF_TIME,
     CONF_ON_DURATION,
@@ -105,11 +109,49 @@ from .schedule import format_month_day, parse_colors, parse_month_day, rgb_to_he
 CONF_PRESET = "preset"
 PRESET_CUSTOM = "custom"
 SECTION_SCHEDULE = "schedule_override"
+SECTION_MUSIC = "theme_music"
 WEEK_LAST = "last"
 
 LIGHTS_SELECTOR = EntitySelector(
     EntitySelectorConfig(domain=LIGHT_DOMAIN, multiple=True, reorder=True)
 )
+# Theme music plays through Music Assistant, so only its players are offered.
+MUSIC_PLAYERS_SELECTOR = EntitySelector(
+    EntitySelectorConfig(
+        domain="media_player", integration="music_assistant", multiple=True
+    )
+)
+
+
+def _music_schema(values: dict[str, Any]) -> dict[Any, Any]:
+    """Settings: the speakers for theme music, and their volume."""
+    return {
+        vol.Optional(
+            CONF_MUSIC_PLAYERS, description=_suggested(values, CONF_MUSIC_PLAYERS)
+        ): MUSIC_PLAYERS_SELECTOR,
+        vol.Optional(
+            CONF_MUSIC_VOLUME, description=_suggested(values, CONF_MUSIC_VOLUME)
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=1,
+                max=100,
+                step=1,
+                unit_of_measurement="%",
+                mode=NumberSelectorMode.SLIDER,
+            )
+        ),
+    }
+
+
+def _music_section_default(values: dict[str, Any]) -> dict[str, Any]:
+    """A holiday's theme music, for its collapsed section's default."""
+    default: dict[str, Any] = {
+        CONF_MUSIC_ENABLED: bool(values.get(CONF_MUSIC_ENABLED, True))
+    }
+    if values.get(CONF_MUSIC):
+        default[CONF_MUSIC] = values[CONF_MUSIC]
+    return default
+
 
 # Each color is an item with a picker and an optional name; the list can be
 # dragged into the order the colors rotate in. Field selectors must be plain
@@ -346,6 +388,7 @@ def _section_default(override: dict[str, Any]) -> dict[str, Any]:
 
 def _holiday_schema(kind: str, values: dict[str, Any]) -> vol.Schema:
     override = values.get(SECTION_SCHEDULE) or values
+    music = values.get(SECTION_MUSIC) or values
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=values.get(CONF_NAME, "")): TextSelector(),
@@ -410,6 +453,20 @@ def _holiday_schema(kind: str, values: dict[str, Any]) -> vol.Schema:
                 ),
                 {"collapsed": True},
             ),
+            vol.Optional(SECTION_MUSIC, default=_music_section_default(music)): section(
+                vol.Schema(
+                    {
+                        vol.Optional(
+                            CONF_MUSIC_ENABLED,
+                            default=bool(music.get(CONF_MUSIC_ENABLED, True)),
+                        ): BooleanSelector(),
+                        vol.Optional(
+                            CONF_MUSIC, description=_suggested(music, CONF_MUSIC)
+                        ): TextSelector(),
+                    }
+                ),
+                {"collapsed": True},
+            ),
         }
     )
 
@@ -419,7 +476,11 @@ def _normalise_holiday(
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """Validate form input and turn it into stored holiday data."""
     errors: dict[str, str] = {}
-    data = {k: v for k, v in user_input.items() if k != SECTION_SCHEDULE}
+    data = {
+        k: v
+        for k, v in user_input.items()
+        if k not in (SECTION_SCHEDULE, SECTION_MUSIC)
+    }
     data[CONF_KIND] = kind
     data[CONF_NAME] = data[CONF_NAME].strip()
     if not data[CONF_NAME]:
@@ -473,6 +534,11 @@ def _normalise_holiday(
     data[CONF_INTERVAL] = int(data[CONF_INTERVAL])
     if CONF_BRIGHTNESS in data:
         data[CONF_BRIGHTNESS] = int(data[CONF_BRIGHTNESS])
+
+    music = user_input.get(SECTION_MUSIC) or {}
+    data[CONF_MUSIC_ENABLED] = bool(music.get(CONF_MUSIC_ENABLED, True))
+    if chosen := (music.get(CONF_MUSIC) or "").strip():
+        data[CONF_MUSIC] = chosen
 
     override = user_input.get(SECTION_SCHEDULE) or {}
     if override.get(CONF_ALL_NIGHT):
@@ -597,6 +663,8 @@ class HolidayLightingOptionsFlow(OptionsFlow):
                         (item.get(FIELD_COLOR_NAME) or "").strip() or hexes[index]
                         for index, item in enumerate(items)
                     ]
+                if data.get(CONF_MUSIC_VOLUME):
+                    data[CONF_MUSIC_VOLUME] = int(data[CONF_MUSIC_VOLUME])
                 return self.async_create_entry(data=data)
 
         values = user_input or dict(self.config_entry.options)
@@ -610,20 +678,24 @@ class HolidayLightingOptionsFlow(OptionsFlow):
                 }
             )
         )
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_DEFAULT_LIGHTS,
-                    description=_suggested(values, CONF_DEFAULT_LIGHTS),
-                ): LIGHTS_SELECTOR,
-                vol.Optional(
-                    CONF_DEFAULT_COLORS,
-                    description={"suggested_value": default_items}
-                    if default_items
-                    else {},
-                ): COLORS_SELECTOR,
-            }
-        ).extend(_schedule_schema(values).schema)
+        schema = (
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_DEFAULT_LIGHTS,
+                        description=_suggested(values, CONF_DEFAULT_LIGHTS),
+                    ): LIGHTS_SELECTOR,
+                    vol.Optional(
+                        CONF_DEFAULT_COLORS,
+                        description={"suggested_value": default_items}
+                        if default_items
+                        else {},
+                    ): COLORS_SELECTOR,
+                }
+            )
+            .extend(_schedule_schema(values).schema)
+            .extend(_music_schema(values))
+        )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
 
 

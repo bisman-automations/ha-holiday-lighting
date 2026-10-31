@@ -12,6 +12,15 @@ const ACTIVE = "sensor.holiday_lighting_active_holiday";
 const ON_AT = "sensor.holiday_lighting_lights_on_at";
 const OFF_AT = "sensor.holiday_lighting_lights_off_at";
 
+// The integration's buttons, in the order shown. Found by their translation
+// key, so a renamed entity still works; the entity ids are the fallback.
+const ACTIONS = [
+  { key: "start", label: "Turn on now", fallback: "button.holiday_lighting_turn_on_now" },
+  { key: "next", label: "Next colors", fallback: "button.holiday_lighting_next_colors" },
+  { key: "stop", label: "Turn off for tonight", fallback: "button.holiday_lighting_turn_off_for_tonight" },
+  { key: "default", label: "Use default colors tonight", fallback: "button.holiday_lighting_use_default_colors_tonight" },
+];
+
 const STYLE = `
   :host {
     display: block;
@@ -52,6 +61,19 @@ const STYLE = `
     overflow: hidden; max-width: 100%; opacity: 0.9;
   }
   .sub { font-size: 12px; opacity: 0.65; text-align: center; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .actions button {
+    font: inherit; font-size: 14px; cursor: pointer;
+    padding: 9px 16px; min-height: 40px; border-radius: 20px;
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color, #1c1c1c);
+    border: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .actions button:hover:not(:disabled) { border-color: var(--primary-color, #03a9f4); }
+  .actions button:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }
+  .actions button:disabled { opacity: 0.5; cursor: default; }
+  .note { margin-top: 8px; font-size: 13px; min-height: 18px; opacity: 0.8; }
+  .note.error { color: var(--error-color, #db4437); opacity: 1; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
   .card {
     background: var(--card-background-color, #fff);
@@ -145,15 +167,65 @@ class HolidayLightingPanel extends HTMLElement {
       <div class="wrap">
         <h1>Holiday Lights</h1>
         <div id="stage" class="stage" aria-live="polite"></div>
+        <div id="actions" class="actions" role="group" aria-label="Holiday light controls"></div>
+        <div id="note" class="note" role="status"></div>
         <div id="cards" class="cards"></div>
       </div>`;
     this._stage = root.getElementById("stage");
     this._cards = root.getElementById("cards");
+    this._actions = root.getElementById("actions");
+    this._note = root.getElementById("note");
+    this._actions.addEventListener("click", (ev) => {
+      const button = ev.target.closest("button[data-entity]");
+      if (button && !button.disabled) this._press(button.dataset.entity, button.textContent);
+    });
     // Show placeholders until Home Assistant sends the first state update.
     const sk = this._skeleton();
     this._stage.innerHTML = sk.stage;
     this._cards.innerHTML = sk.cards;
     this._built = true;
+  }
+
+  // Each action's button entity, and whether it can be pressed right now.
+  _actionButtons(states) {
+    const entities = this._hass.entities || {};
+    return ACTIONS.map((action) => {
+      const found = Object.values(entities).find(
+        (e) => e.platform === "holiday_lighting" && e.translation_key === action.key && e.entity_id.startsWith("button."),
+      );
+      const entityId = found?.entity_id || action.fallback;
+      const state = states[entityId];
+      return { ...action, entityId, exists: Boolean(state), usable: Boolean(state) && state.state !== "unavailable" };
+    }).filter((a) => a.exists);
+  }
+
+  _renderActions(actions) {
+    this._actions.innerHTML = actions
+      .map((a) => `<button type="button" data-entity="${esc(a.entityId)}" ${a.usable && !this._busy ? "" : "disabled"}
+        title="${a.usable ? "" : "Not available right now"}">${esc(a.label)}</button>`)
+      .join("");
+  }
+
+  async _press(entityId, label) {
+    this._busy = true;
+    this._lastKey = "";
+    this._note.className = "note";
+    this._note.textContent = "";
+    this._update();
+    try {
+      await this._hass.callService("button", "press", { entity_id: entityId });
+      this._note.textContent = `${label.trim()}: done.`;
+    } catch (err) {
+      this._note.className = "note error";
+      this._note.textContent = `${label.trim()} didn't work: ${err?.message || err}`;
+    }
+    this._busy = false;
+    this._lastKey = "";
+    this._update();
+    clearTimeout(this._noteTimer);
+    this._noteTimer = setTimeout(() => {
+      if (this._note.className === "note") this._note.textContent = "";
+    }, 4000);
   }
 
   _skeleton() {
@@ -172,6 +244,7 @@ class HolidayLightingPanel extends HTMLElement {
       const sk = this._skeleton();
       this._stage.innerHTML = sk.stage;
       this._cards.innerHTML = sk.cards;
+      this._actions.innerHTML = "";
       this._bulbs.clear();
       this._lightKeys = "";
       this._lastKey = "";
@@ -182,6 +255,7 @@ class HolidayLightingPanel extends HTMLElement {
     if (!status) {
       this._stage.innerHTML = '<div class="msg">Holiday Lighting is not set up yet.</div>';
       this._cards.innerHTML = "";
+      this._actions.innerHTML = "";
       this._bulbs.clear();
       this._lightKeys = "";
       this._lastKey = "";
@@ -194,17 +268,20 @@ class HolidayLightingPanel extends HTMLElement {
     const active = states[ACTIVE];
     const onAt = states[ON_AT];
     const offAt = states[OFF_AT];
+    const actions = this._actionButtons(states);
 
     // Skip the DOM work when nothing the panel shows has changed.
     const key = JSON.stringify([
       status.state, active?.state, active?.attributes?.next_holiday,
       onAt?.state, offAt?.state,
+      actions.map((a) => [a.entityId, a.usable]), Boolean(this._busy),
       lights.map((l) => [l.attributes.light, lightName(states, l.attributes.light), l.state, l.attributes.hex, l.attributes.shown_as, l.attributes.holiday ?? null]),
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
 
     this._renderBulbs(lights, states);
+    this._renderActions(actions);
     const activeName = active?.state && active.state !== "unknown" ? active.state : "No holiday";
     const cards = [
       ["Status", toLabel(status.state)],
