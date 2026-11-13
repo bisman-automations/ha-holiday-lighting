@@ -10,6 +10,9 @@ from . import HolidayLightingConfigEntry
 from .const import THEME_AUTO
 from .entity import HolidayLightingEntity
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 AUTO_LABEL = "Auto"
 
 

@@ -15,6 +15,9 @@ from .controller import Holiday, HolidayLightingController
 from .entity import HolidayLightingEntity
 from .schedule import night_of
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 # The frontend asks for a month or so at a time; cap anything larger.
 MAX_RANGE = timedelta(days=800)
 

@@ -13,6 +13,9 @@ from . import HolidayLightingConfigEntry
 from .controller import HolidayLightingController
 from .entity import HolidayLightingEntity
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class HolidayButtonDescription(ButtonEntityDescription):

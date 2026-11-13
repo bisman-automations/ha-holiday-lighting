@@ -22,6 +22,9 @@ from .controller import HolidayLightingController
 from .entity import HolidayLightingEntity
 from .schedule import LIGHT_COLOR
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 LIGHT_COLOR_PREFIX = "color_"
 NO_HOLIDAY = "No holiday"
 
