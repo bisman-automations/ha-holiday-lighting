@@ -480,6 +480,24 @@
     },
     "no_default_colors": {
       "message": "No default colors are set. Add them in Holiday Lighting's settings."
+    },
+    "off_time_passed": {
+      "message": "Pick a time that hasn't passed yet."
+    },
+    "off_time_too_late": {
+      "message": "Pick a time within the next 24 hours."
+    },
+    "nothing_to_keep": {
+      "message": "There are no changes for tonight to keep."
+    },
+    "unknown_light": {
+      "message": "That light isn't one of Holiday Lighting's lights."
+    },
+    "no_music_players": {
+      "message": "No speakers are picked for theme music."
+    },
+    "music_needs_lights": {
+      "message": "Theme music plays while a holiday's lights are on."
     }
   },
   "services": {

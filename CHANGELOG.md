@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-11-14
+
+### Added
+
+- **A bigger Holiday Lights page.** The sidebar page now runs the whole show:
+  - The **Enabled** switch and **Theme** picker at the top.
+  - **Tonight's timeline**: sunset, on and off times with a marker for now, and why the lights are still waiting (the sun's height or the light level against your setting).
+  - **Keep them on longer tonight**: 30 minutes, 1 or 2 hours more, or pick tonight's off time. After they've turned off, **On for 1 more hour** brings them back.
+  - **Tap a bulb** to see its color, leave that light out tonight, put it back, or give it back to the show after someone changed it by hand.
+  - **Theme music** controls: play, stop for tonight, and volume.
+  - **Coming up**: the next three weeks night by night, and the days until the next holiday.
+  - **Holidays** with their colors, dates, effect and lights, and a **Preview** that plays the effect on the page without touching your lights.
+  - **Last nights**: when the lights came on and went off, and which lights were changed by hand or didn't respond.
+  - For admins: **tonight's brightness, speed and effect** (with **Keep these** to save them to the holiday), **Try on the lights** for 2 minutes, and **Add**, **Edit**, **Remove** and **Settings** right on the page.
+  - A better layout on phones.
+
 ## [1.12.3] - 2026-11-14
 
 ### Changed
@@ -279,6 +295,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
+[1.13.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.3...v1.13.0
 [1.12.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.0...v1.12.1

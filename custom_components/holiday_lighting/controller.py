@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 import logging
 import random
@@ -95,6 +95,7 @@ from .const import (
     MODE_FADE,
     MODE_ROTATE,
     MODE_STATIC,
+    MODES,
     MUSIC_DOMAIN,
     STATUS_DISABLED,
     STATUS_DONE,
@@ -178,6 +179,44 @@ class _NightState:
     """Things that reset every night."""
 
     overridden: set[str] = field(default_factory=set)
+    # Lights left out of the show tonight from the dashboard.
+    left_out: set[str] = field(default_factory=set)
+    # Tonight's own off time (Keep on longer / Turn off at).
+    off_at: datetime | None = None
+    # Tonight's brightness, speed and effect, over the holiday's own.
+    tweaks: dict[str, Any] = field(default_factory=dict)
+    # Theme music stopped for tonight from the dashboard.
+    music_off: bool = False
+    # Lights that were unavailable while the show ran.
+    unavailable: set[str] = field(default_factory=set)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "overridden": sorted(self.overridden),
+            "left_out": sorted(self.left_out),
+            "off_at": self.off_at.isoformat() if self.off_at else None,
+            "tweaks": self.tweaks,
+            "music_off": self.music_off,
+            "unavailable": sorted(self.unavailable),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> _NightState:
+        off_at = dt_util.parse_datetime(data["off_at"]) if data.get("off_at") else None
+        return cls(
+            overridden=set(data.get("overridden") or []),
+            left_out=set(data.get("left_out") or []),
+            off_at=off_at,
+            tweaks=dict(data.get("tweaks") or {}),
+            music_off=bool(data.get("music_off")),
+            unavailable=set(data.get("unavailable") or []),
+        )
+
+
+# Nights kept in the dashboard's history.
+HISTORY_NIGHTS = 14
+# "Try it now": at most this long.
+TRY_MAX_MINUTES = 10
 
 
 def _parse_time(value: str | None) -> time | None:
@@ -370,6 +409,12 @@ class HolidayLightingController:
         # After a restart or a settings change, speakers already playing are
         # carrying on with tonight's music; don't start it over.
         self._music_resume = True
+        # The last nights: when the lights came on and went off, and what
+        # went wrong (dashboard history).
+        self.history: list[dict[str, Any]] = []
+        # "Try it now": a holiday shown for a few minutes, then back.
+        self.trial: dict[str, Any] | None = None
+        self._trial_unsub: CALLBACK_TYPE | None = None
 
     # --- lifecycle ---------------------------------------------------------
 
@@ -387,9 +432,11 @@ class HolidayLightingController:
                 self.default_night = date.fromisoformat(default)
             self.offset = stored.get("offset", 0)
             self._snapshot = stored.get("snapshot", {})
-            if (key := stored.get("night_key")) and stored.get("overridden"):
+            if key := stored.get("night_key"):
                 self._night_key = date.fromisoformat(key)
-                self.night.overridden = set(stored["overridden"])
+                night = stored.get("night") or {"overridden": stored.get("overridden")}
+                self.night = _NightState.from_dict(night)
+            self.history = list(stored.get("history") or [])[-HISTORY_NIGHTS:]
 
         self._remove_stale_issues()
         self._unsubs.append(
@@ -408,6 +455,7 @@ class HolidayLightingController:
 
     async def async_unload(self) -> None:
         """Stop timers. Lights are left as they are; state is saved."""
+        self._cancel_trial_timer()
         self._stop_rotation()
         self._stop_watching_lights()
         self._stop_guard()
@@ -463,6 +511,7 @@ class HolidayLightingController:
     async def async_set_enabled(self, enabled: bool) -> None:
         """Arm or disarm. Disarming restores the lights' previous state."""
         async with self._lock:
+            await self._async_drop_trial()
             self.enabled = enabled
             if not enabled:
                 await self._async_release(restore=True)
@@ -493,6 +542,7 @@ class HolidayLightingController:
     async def async_force_on(self, holiday_id: str | None = None) -> None:
         """Turn lights on now, ignoring darkness. Off rules still apply."""
         async with self._lock:
+            await self._async_drop_trial()
             self.enabled = True
             if holiday_id:
                 self.theme = holiday_id
@@ -516,7 +566,14 @@ class HolidayLightingController:
         if self._step_task is not None and not self._step_task.done():
             self._step_task.cancel()
         async with self._lock:
-            await self._async_end_night(dt_util.now(), include_manual=True)
+            if self.trial is not None and not self.trial["was_on"]:
+                # Only a try was on: just end it.
+                await self._async_drop_trial()
+                await self._async_save()
+                self._notify()
+                return
+            await self._async_drop_trial()
+            await self._async_end_night(dt_util.now(), include_manual=True, by="button")
             self.status = STATUS_DONE if self.enabled else STATUS_DISABLED
             await self._async_save()
         self._notify()
@@ -528,6 +585,273 @@ class HolidayLightingController:
                 self.offset += 1
                 await self._async_apply(self.running)
         self._notify()
+
+    # --- dashboard controls (1.13.0) ----------------------------------------
+
+    def _night_now(self, now: datetime) -> None:
+        if self._night_key != night_of(now):
+            self._night_key = night_of(now)
+            self.night = _NightState()
+
+    async def async_set_off_tonight(
+        self, off_at: datetime | None = None, *, extend_minutes: int | None = None
+    ) -> None:
+        """Tonight's own off time: a time, a number of minutes more, or None
+        to go back to the usual rules."""
+        async with self._lock:
+            now = dt_util.now()
+            self._night_now(now)
+            if extend_minutes:
+                base = self.next_off() or now
+                off_at = max(base, now) + timedelta(minutes=extend_minutes)
+            if off_at is not None:
+                if off_at <= now:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN, translation_key="off_time_passed"
+                    )
+                if off_at - now > timedelta(hours=24):
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN, translation_key="off_time_too_late"
+                    )
+            self.night.off_at = off_at
+            if off_at is not None and self.done_night == self._night_key:
+                # Turned off already: tonight isn't over after all.
+                self.done_night = None
+            await self._async_evaluate_locked(now)
+            await self._async_save()
+        self._notify()
+
+    async def async_set_tweaks(self, tweaks: Mapping[str, Any] | None) -> None:
+        """Tonight's brightness (0: the holiday's own), speed and effect;
+        None goes back to the holiday's own."""
+        async with self._lock:
+            self._night_now(dt_util.now())
+            clean: dict[str, Any] = {}
+            for key, value in (tweaks or {}).items():
+                if value is None:
+                    continue
+                if key == "brightness":
+                    clean[key] = max(0, min(100, int(value)))
+                elif key == "interval":
+                    clean[key] = max(1, min(3600, int(value)))
+                elif key == "mode" and value in MODES:
+                    clean[key] = value
+            self.night.tweaks = clean
+            await self._async_rerun()
+            await self._async_save()
+        self._notify()
+
+    async def _async_rerun(self) -> None:
+        """Show the running holiday again (after tonight's changes)."""
+        if self.running is None:
+            return
+        base = self.holiday_by_id(self.running.id)
+        if base is None:
+            return
+        self._stop_rotation()
+        self.running = None  # so _async_run doesn't treat it as the same show
+        offset = self.offset
+        await self._async_run(base, music=False)
+        self.offset = offset
+
+    async def async_keep_tweaks(self) -> Holiday:
+        """Save tonight's brightness, speed and effect to the holiday."""
+        holiday = self.running or self.shown_holiday()
+        tweaks = dict(self.night.tweaks)
+        if holiday is None or holiday.id not in self.holidays or not tweaks:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="nothing_to_keep"
+            )
+        subentry = self.entry.subentries[holiday.id]
+        data = dict(subentry.data)
+        if "brightness" in tweaks:
+            if tweaks["brightness"]:
+                data[CONF_BRIGHTNESS] = tweaks["brightness"]
+            else:
+                data.pop(CONF_BRIGHTNESS, None)
+        if "interval" in tweaks:
+            data[CONF_INTERVAL] = tweaks["interval"]
+        if "mode" in tweaks:
+            data[CONF_MODE] = tweaks["mode"]
+        self.night.tweaks = {}
+        await self._async_save()
+        # Saving a holiday reloads the integration, which shows it again.
+        self.hass.config_entries.async_update_subentry(self.entry, subentry, data=data)
+        return holiday
+
+    async def async_set_light(self, entity_id: str, action: str) -> None:
+        """A light from the dashboard: leave it out tonight, put it back, or
+        give a light changed by hand back to the show."""
+        async with self._lock:
+            self._night_now(dt_util.now())
+            if entity_id not in self.all_lights:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="unknown_light"
+                )
+            if action == "leave_out":
+                self.night.left_out.add(entity_id)
+                self.light_colors.pop(entity_id, None)
+                self._commanded.pop(entity_id, None)
+                await self._async_restore([entity_id])
+            elif action == "include":
+                self.night.left_out.discard(entity_id)
+            elif action == "give_back":
+                self.night.overridden.discard(entity_id)
+            if action in ("include", "give_back") and self.running is not None:
+                if entity_id in self.running.lights:
+                    self._take_snapshot([entity_id])
+                    await self._async_apply(self.running)
+            self._notify_lights()
+            await self._async_save()
+        self._notify()
+
+    async def async_music(self, action: str, volume: int | None = None) -> None:
+        """Play or stop tonight's theme music, or set its volume."""
+        if not self.music_players:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_music_players"
+            )
+        self._night_now(dt_util.now())
+        if action == "stop":
+            self.night.music_off = True
+            self._stop_music()
+        elif action == "play":
+            holiday = self.running
+            if holiday is None or holiday.id not in self.holidays:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="music_needs_lights"
+                )
+            self.night.music_off = False
+            self.music_holiday = None
+            self._music_resume = False
+            self._start_music(holiday)
+        elif action == "volume" and volume is not None:
+            await self.hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                "volume_set",
+                {
+                    ATTR_ENTITY_ID: list(self.music_players),
+                    "volume_level": max(0, min(100, volume)) / 100,
+                },
+                blocking=True,
+                context=self._context(),
+            )
+        await self._async_save()
+        self._notify()
+
+    async def async_try(self, holiday_id: str, minutes: int = 2) -> None:
+        """Show a holiday on the lights for a few minutes, then go back."""
+        holiday = self.holiday_by_id(holiday_id)
+        if holiday is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_holiday",
+                translation_placeholders={"holiday": holiday_id},
+            )
+        minutes = max(1, min(TRY_MAX_MINUTES, int(minutes)))
+        async with self._lock:
+            self._night_now(dt_util.now())
+            if self.trial is None:
+                self.trial = {
+                    "was_on": self.running is not None and self.on_at is not None,
+                    "overridden": sorted(self.night.overridden),
+                }
+            self._cancel_trial_timer()
+            until = dt_util.now() + timedelta(minutes=minutes)
+            self.trial.update(holiday=holiday.id, name=holiday.name, until=until)
+            self.running = None
+            await self._async_run(holiday, music=False)
+            self._trial_unsub = async_call_later(
+                self.hass, minutes * 60, self._async_trial_over
+            )
+        self._notify()
+
+    async def _async_trial_over(self, _now: datetime) -> None:
+        self._trial_unsub = None
+        await self.async_end_trial()
+
+    async def async_end_trial(self) -> None:
+        async with self._lock:
+            await self._async_drop_trial()
+            await self._async_evaluate_locked(dt_util.now())
+            await self._async_save()
+        self._notify()
+
+    def _cancel_trial_timer(self) -> None:
+        if self._trial_unsub is not None:
+            self._trial_unsub()
+            self._trial_unsub = None
+
+    async def _async_drop_trial(self) -> None:
+        """End "Try it now": back to the scheduled show, or the lights as
+        they were. Call with the lock held."""
+        trial, self.trial = self.trial, None
+        self._cancel_trial_timer()
+        if trial is None:
+            return
+        if trial["was_on"]:
+            holiday = self._selected_holiday(dt_util.now())
+            self.running = None
+            if holiday is not None:
+                await self._async_run(holiday)
+            return
+        self._stop_rotation()
+        self._stop_watching_lights()
+        await self._async_restore(list(self._snapshot))
+        self._snapshot.clear()
+        self._commanded.clear()
+        self.light_colors.clear()
+        self.running = None
+        self.offset = 0
+        self._notify_lights()
+
+    def _log_night(self, night: date, now: datetime, by: str) -> None:
+        """Remember how a night went, for the dashboard's history."""
+        running = self.running
+        assert running is not None and self.on_at is not None
+        entry = {
+            "night": night.isoformat(),
+            "holiday": running.name,
+            "colors": list(running.colors),
+            "on": self.on_at.isoformat(),
+            "off": now.isoformat(),
+            "by": by,
+            "manual": sorted(self.night.overridden),
+            "unavailable": sorted(self.night.unavailable),
+        }
+        self.history = [h for h in self.history if h.get("night") != entry["night"]]
+        self.history = [*self.history, entry][-HISTORY_NIGHTS:]
+
+    def nights_ahead(self, count: int = 21) -> list[tuple[date, Holiday | None]]:
+        """What each coming night will show (tonight first)."""
+        now = dt_util.now()
+        tonight = night_of(now)
+        result: list[tuple[date, Holiday | None]] = []
+        for offset in range(count):
+            day = tonight + timedelta(days=offset)
+            if offset == 0 or self.theme != THEME_AUTO:
+                holiday = (
+                    self.shown_holiday() if offset == 0 else self._selected_holiday(now)
+                )
+            else:
+                holiday = self.planned_for(day)
+            result.append((day, holiday))
+        return result
+
+    def sunset(self) -> datetime | None:
+        """Today's sunset, from your home location."""
+        from astral import Observer  # noqa: PLC0415
+        from astral.sun import sunset  # noqa: PLC0415
+
+        observer = Observer(
+            self.hass.config.latitude,
+            self.hass.config.longitude,
+            self.hass.config.elevation,
+        )
+        try:
+            return dt_util.as_local(sunset(observer, dt_util.now().date()))
+        except ValueError:  # no sunset (polar day or night)
+            return None
 
     # --- derived info for entities ----------------------------------------
 
@@ -577,6 +901,8 @@ class HolidayLightingController:
         """When lights turned on for `holiday` must turn off."""
         if self.on_at is None or not self.use_schedule:
             return None
+        if self.night.off_at is not None and night_of(self.on_at) == self._night_key:
+            return self.night.off_at
         return lights_off_deadline(
             self.on_at,
             self.duration_for(holiday),
@@ -616,9 +942,11 @@ class HolidayLightingController:
         """
         if not self.enabled or not self.use_schedule:
             return None
-        if self.running is not None:
+        if self.running is not None and self.trial is None:
             return self.deadline
         now = dt_util.now()
+        if self.night.off_at is not None and self.night.off_at > now:
+            return self.night.off_at
         for day, holiday in self._nights_ahead(now):
             off_time = self.off_time_for(holiday, day)
             if off_time is None:
@@ -890,6 +1218,10 @@ class HolidayLightingController:
             self._night_key = night_of(now)
             self.night = _NightState()
 
+        if self.trial is not None:
+            # "Try it now" is showing; the schedule waits until it ends.
+            return
+
         if not self.enabled:
             self.status = STATUS_DISABLED
             return
@@ -928,9 +1260,11 @@ class HolidayLightingController:
                 return
 
         night = night_of(now)
-        if self.done_night == night or not can_start(
-            now, self.off_time_for(holiday, night)
-        ):
+        if self.night.off_at is not None:
+            may_start = now < self.night.off_at
+        else:
+            may_start = can_start(now, self.off_time_for(holiday, night))
+        if self.done_night == night or not may_start:
             self.status = STATUS_DONE
             return
         if not self.is_dark():
@@ -945,10 +1279,34 @@ class HolidayLightingController:
 
     def _controlled(self, holiday: Holiday) -> list[str]:
         """The holiday's lights, minus any changed by hand tonight."""
-        return [e for e in holiday.lights if e not in self.night.overridden]
+        return [
+            e
+            for e in holiday.lights
+            if e not in self.night.overridden and e not in self.night.left_out
+        ]
 
-    async def _async_run(self, holiday: Holiday) -> None:
+    def holiday_by_id(self, holiday_id: str | None) -> Holiday | None:
+        if holiday_id == DEFAULT_HOLIDAY_ID:
+            return self.default_holiday
+        return self.holidays.get(holiday_id or "")
+
+    def _effective(self, holiday: Holiday) -> Holiday:
+        """The holiday with tonight's brightness, speed and effect."""
+        tweaks = self.night.tweaks
+        if not tweaks:
+            return holiday
+        changes: dict[str, Any] = {}
+        if tweaks.get("brightness"):
+            changes["brightness"] = int(tweaks["brightness"])
+        if tweaks.get("interval"):
+            changes["interval"] = int(tweaks["interval"])
+        if tweaks.get("mode"):
+            changes["mode"] = tweaks["mode"]
+        return replace(holiday, **changes)
+
+    async def _async_run(self, holiday: Holiday, *, music: bool = True) -> None:
         """Start showing a holiday (switching from another if needed)."""
+        holiday = self._effective(holiday)
         self._stop_rotation()
         if self.running is not None and self.running.id != holiday.id:
             self.offset = 0
@@ -969,7 +1327,8 @@ class HolidayLightingController:
                     "entity_id": entity_id,
                 },
             )
-        self._start_music(holiday)
+        if music:
+            self._start_music(holiday)
         if holiday.mode != MODE_STATIC and len(holiday.colors) > 1:
             self._rotation_unsub = async_track_time_interval(
                 self.hass,
@@ -1160,7 +1519,7 @@ class HolidayLightingController:
         return key, expected
 
     async def _async_end_night(
-        self, now: datetime, *, include_manual: bool = False
+        self, now: datetime, *, include_manual: bool = False, by: str = "schedule"
     ) -> None:
         """Schedule finished: turn lights off and wait for tomorrow.
 
@@ -1200,6 +1559,8 @@ class HolidayLightingController:
         # The night the lights were on is done, which may be an earlier
         # night than now if Home Assistant missed the off time.
         lit_night = night_of(self.on_at) if self.on_at else night_of(now)
+        if self.running is not None and self.on_at is not None:
+            self._log_night(lit_night, now, by)
         self._stop_music()
         self._snapshot.clear()
         self._commanded.clear()
@@ -1237,7 +1598,10 @@ class HolidayLightingController:
         (the default colors never play music).
         """
         wanted = (
-            self.music_players and holiday.music_enabled and holiday.id in self.holidays
+            self.music_players
+            and holiday.music_enabled
+            and holiday.id in self.holidays
+            and not self.night.music_off
         )
         if not wanted:
             self._stop_music()
@@ -1442,6 +1806,7 @@ class HolidayLightingController:
                 self._unavailable_strikes[entity_id] = strikes
                 if strikes >= UNAVAILABLE_STRIKES:
                     unavailable.append(entity_id)
+                    self.night.unavailable.add(entity_id)
                 continue
             self._unavailable_strikes.pop(entity_id, None)
         self._set_issue("lights_unavailable", holiday, unavailable)
@@ -1492,5 +1857,7 @@ class HolidayLightingController:
                 "snapshot": self._snapshot,
                 "night_key": self._night_key.isoformat() if self._night_key else None,
                 "overridden": sorted(self.night.overridden),
+                "night": self.night.as_dict(),
+                "history": self.history[-HISTORY_NIGHTS:],
             }
         )

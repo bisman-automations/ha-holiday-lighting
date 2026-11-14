@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import ATTR_HOLIDAY, DOMAIN, SERVICE_ADVANCE, SERVICE_START, SERVICE_STOP
 from .controller import HolidayLightingController
+from .dashboard import async_register_dashboard
 from .panel import async_setup_panel, async_teardown_panel
 
 PLATFORMS: list[Platform] = [
@@ -70,6 +71,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_START, handle_start, START_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_STOP, handle_stop)
     hass.services.async_register(DOMAIN, SERVICE_ADVANCE, handle_advance)
+    async_register_dashboard(hass)
     return True
 
 

@@ -203,7 +203,24 @@ recorder:
 
 ## Sidebar panel
 
-**Holiday Lights** in the sidebar shows the lights as bulbs, each in the color it's showing now (dim when off, striped when under manual control). It updates as the lights change. Under the bulbs are the buttons: **Turn on now**, **Next colors**, **Turn off for tonight** and **Use default colors tonight**, which do the same as the button entities above. A button that can't be used right now, such as Use default colors tonight with no default colors set, is greyed out. Below them are the status, the active holiday, and when the lights come on and go off. Everyone with access to Home Assistant can see it. It reads the integration's own sensors, so it works without any extra setup.
+**Holiday Lights** in the sidebar is the place to run the lights from. Everyone with access to Home Assistant can open it.
+
+- **Top:** the **Enabled** switch and the **Theme** picker.
+- **The bulbs** show each light in the color it's showing now (dark when off, striped when someone changed it by hand, dashed when left out). Tap a bulb to see its color, **leave it out tonight** (it goes back to how it was, and rejoins the show tomorrow), put it back, or **give it back to the show** after someone changed it by hand.
+- **Buttons:** **Turn on now**, **Next colors**, **Turn off for tonight** and **Use default colors tonight**.
+- **Tonight:** a timeline from sunset to the off time with a marker for now, and why the lights are waiting (for example the sun's height against your setting). Keep them on **30 minutes, 1 or 2 hours longer**, or pick an off time, for tonight only. After they've turned off, **On for 1 more hour** brings them back.
+- **Theme music:** play it, stop it for tonight, and set the volume (when speakers are picked in the settings).
+- **Coming up:** the next three weeks, night by night, and how many days until the next holiday.
+- **Holidays:** every holiday with its colors, dates, effect and number of lights. **Preview** plays a holiday's effect on the page's bulbs without touching your lights.
+- **Last nights:** when the lights came on and went off over the last two weeks, and which lights were changed by hand or didn't respond.
+
+Admins also get:
+
+- **Tonight's look:** brightness, speed and effect for tonight only. **Keep these** saves them to the holiday.
+- **Try on the lights:** shows a holiday on your real lights for 2 minutes, then goes back to what was showing before (or turns them back off).
+- **Add holiday**, **Edit**, **Remove** and **Settings**, using the same forms as Settings → Devices & services.
+
+Changes made on the page for tonight (off time, look, left-out lights, stopped music) last until noon the next day and survive a restart.
 
 ## Repairs and diagnostics
 

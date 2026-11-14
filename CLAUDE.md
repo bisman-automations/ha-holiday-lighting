@@ -11,6 +11,8 @@ A HACS custom integration (`holiday_lighting`) for Home Assistant. Holidays (dat
 - `config_flow.py`: setup, options, and the holiday subentry flow. `presets.py` holds the built-in holidays.
 - Platforms: `button.py`, `calendar.py`, `select.py`, `sensor.py`, `switch.py`. `entity.py` is the shared base. `diagnostics.py` is the diagnostics download.
 - `const.py` holds config keys and shared constants. Add new keys there.
+- `panel.py` + `frontend/holiday-lighting-panel.js`: the **Holiday Lights** sidebar page, one plain web component with no build step. It reads everything from `dashboard.py`'s websocket API (`holiday_lighting/state`, which every command also answers with) and asks again every 30 seconds and when the integration's entities, its lights or speakers change. Everyday commands are open to everyone; `tweaks`, `keep_tweaks`, `try` and `try/stop` are `require_admin`. Holidays are added and edited through Home Assistant's subentry and options flow REST APIs in an `<ha-form>` dialog (admin only), removed with `config_entries/subentries/delete`. Preview animates the bulbs on the page only (`effectColors` mirrors `schedule.effect_assignments`). Escape everything with `esc()`; check it at 1280px and 390px, light and dark.
+- `dashboard.py`: the page's websocket commands and `dashboard_state`, registered once in `async_setup`.
 
 ## Workflow
 
@@ -53,6 +55,9 @@ release.
 - Calendar titles: `Holiday Lights: <name>`, and `Holiday Lights for Tonight: <name>` for the event that covers tonight.
 - Lights on at / Lights off at are timestamp sensors. Each has a live value and a predicted value (`next_on`, `next_off`) before the lights change.
 - Activity: a holiday start writes one entry per light. Color steps aren't logged, so the Activity list doesn't fill up during a show.
+- Tonight's changes live on `_NightState` (`left_out`, `off_at`, `tweaks`, `music_off`, `unavailable`), saved with the night and dropped at noon. `deadline_for` / `next_off` honour `off_at`; `_controlled` skips left-out and overridden lights; `_effective` applies the tweaks (brightness 0 means the holiday's own).
+- Try it now (`async_try`) remembers whether the lights were on; when it ends it runs tonight's holiday again or restores the snapshot. It never sets `on_at` or `done_night`, and evaluate leaves the lights alone while it runs.
+- `history` keeps the last `HISTORY_NIGHTS` nights (`_log_night`, written when a night ends).
 - Entities must never raise. A raised exception in a Home Assistant entity breaks its platform.
 
 ## Open items
