@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1] - 2026-11-15
+
+### Changed
+
+- **Far fewer writes.** Holiday Lighting checks the lights every minute and used to save its state every time, about 1,440 writes a day. It now saves only when something changed.
+- **Light sensors.** With a light sensor deciding when it's dark, a new reading now only re-checks the lights when it crosses your threshold, not on every reading.
+- **The Holiday Lights page.** It no longer re-counts every entity in Home Assistant on each state change, and it stops asking for updates in a hidden browser tab or on a switched-off screen, catching up once when it's seen again.
+
 ## [1.13.0] - 2026-11-14
 
 ### Added
@@ -295,6 +303,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
+[1.13.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.3...v1.13.0
 [1.12.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.1...v1.12.2

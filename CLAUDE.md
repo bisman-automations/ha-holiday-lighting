@@ -58,6 +58,7 @@ release.
 - Tonight's changes live on `_NightState` (`left_out`, `off_at`, `tweaks`, `music_off`, `unavailable`), saved with the night and dropped at noon. `deadline_for` / `next_off` honour `off_at`; `_controlled` skips left-out and overridden lights; `_effective` applies the tweaks (brightness 0 means the holiday's own).
 - Try it now (`async_try`) remembers whether the lights were on; when it ends it runs tonight's holiday again or restores the snapshot. It never sets `on_at` or `done_night`, and evaluate leaves the lights alone while it runs.
 - `history` keeps the last `HISTORY_NIGHTS` nights (`_log_night`, written when a night ends).
+- Saving (1.13.1): `_async_save` writes only when the JSON of `_payload()` differs from the last write (`_saved`); the minute tick calls it every time. A light sensor re-evaluates only when `lux_reading_dark` flips (`_lux_dark_seen`). The panel works out `_watchIds` on load and the 30-second refresh, not on every hass update, and `_load` waits while `pageHidden()`.
 - Entities must never raise. A raised exception in a Home Assistant entity breaks its platform.
 
 ## Open items

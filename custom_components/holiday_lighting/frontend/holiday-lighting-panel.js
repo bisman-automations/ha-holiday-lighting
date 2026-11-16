@@ -287,6 +287,12 @@ const effectColors = (mode, count, colors, offset) => {
   return Array.from({ length: count }, (_, i) => pick(i));
 };
 
+
+// Whether the page can't be seen (another tab, or a screen that's off).
+function pageHidden() {
+  return typeof document !== "undefined" && Boolean(document.hidden);
+}
+
 class HolidayLightingPanel extends HTMLElement {
   constructor() {
     super();
@@ -337,10 +343,19 @@ class HolidayLightingPanel extends HTMLElement {
       if (!this._localize) this._loadTranslations();
     }
     clearInterval(this._timer);
-    this._timer = setInterval(() => this._load(), REFRESH_MS);
+    this._timer = setInterval(() => {
+      // The list of entities to watch is worked out again here, not on
+      // every state change in the house (that's many a second).
+      this._watchIds = null;
+      this._load();
+    }, REFRESH_MS);
   }
 
   disconnectedCallback() {
+    if (this._onVisible) {
+      document.removeEventListener("visibilitychange", this._onVisible);
+      this._onVisible = null;
+    }
     clearInterval(this._timer);
     clearTimeout(this._loadTimer);
     this._stopPreview(false);
@@ -351,9 +366,7 @@ class HolidayLightingPanel extends HTMLElement {
   // A key of everything whose change should make the page ask again.
   _watch() {
     const states = this._hass?.states || {};
-    const count = Object.keys(states).length;
-    if (count !== this._watchCount || !this._watchIds) {
-      this._watchCount = count;
+    if (!this._watchIds) {
       const extra = new Set([
         ...(this._state?.lights || []).map((l) => l.entity_id),
         ...(this._state?.music?.players || []).map((p) => p.entity_id),
@@ -375,6 +388,18 @@ class HolidayLightingPanel extends HTMLElement {
 
   async _load() {
     if (!this._hass?.connection) return;
+    if (pageHidden()) {
+      // Nobody's looking: load once when the page is seen again.
+      this._stale = true;
+      if (!this._onVisible) {
+        this._onVisible = () => {
+          if (!pageHidden() && this._stale) this._load();
+        };
+        document.addEventListener("visibilitychange", this._onVisible);
+      }
+      return;
+    }
+    this._stale = false;
     try {
       const state = await this._hass.connection.sendMessagePromise({ type: `${WS}state` });
       this._error = undefined;

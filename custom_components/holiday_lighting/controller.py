@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
+import json
 import logging
 import random
 from typing import Any
@@ -39,7 +40,14 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import CALLBACK_TYPE, Context, Event, HomeAssistant, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Context,
+    Event,
+    HomeAssistant,
+    State,
+    callback,
+)
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import issue_registry as ir, target as target_helpers
 from homeassistant.helpers.event import (
@@ -282,6 +290,16 @@ def _command_targets(hass: HomeAssistant, data: dict[str, Any]) -> set[str]:
     return set()
 
 
+def lux_reading_dark(state: State | None, threshold: float) -> bool | None:
+    """Whether a light sensor's reading is below the threshold (None: unread)."""
+    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        return None
+    try:
+        return float(state.state) < threshold
+    except ValueError:
+        return None
+
+
 class HolidayLightingController:
     """Owns the lighting state machine for one config entry."""
 
@@ -398,6 +416,10 @@ class HolidayLightingController:
         self._night_key: date | None = None
         self._calendar_active: set[str] = set()
         self._calendar_checked: tuple[date, datetime] | None = None
+        # What was last written, so the minute check only writes on a change.
+        self._saved: str | None = None
+        # The light sensor's last dark-or-not, so only a crossing re-checks.
+        self._lux_dark_seen: bool | None = None
         self._our_contexts: deque[str] = deque(maxlen=64)
         self._commanded: dict[str, tuple[tuple[str, Any] | None, datetime]] = {}
         self.slow_light_commands = 0
@@ -1132,7 +1154,13 @@ class HolidayLightingController:
     async def _async_tick(self, _now: datetime) -> None:
         await self.async_evaluate()
 
-    async def _async_lux_changed(self, _event: Event) -> None:
+    async def _async_lux_changed(self, event: Event) -> None:
+        # A light sensor can report every few seconds; only a reading that
+        # crosses the threshold can change anything, so only that re-checks.
+        dark = lux_reading_dark(event.data.get("new_state"), self.lux_threshold)
+        if dark == self._lux_dark_seen:
+            return
+        self._lux_dark_seen = dark
         if self.on_at is None:
             await self.async_evaluate()
 
@@ -1844,20 +1872,27 @@ class HolidayLightingController:
     # --- storage -----------------------------------------------------------
 
     async def _async_save(self) -> None:
-        await self._store.async_save(
-            {
-                "enabled": self.enabled,
-                "theme": self.theme,
-                "on_at": self.on_at.isoformat() if self.on_at else None,
-                "done_night": self.done_night.isoformat() if self.done_night else None,
-                "default_night": (
-                    self.default_night.isoformat() if self.default_night else None
-                ),
-                "offset": self.offset,
-                "snapshot": self._snapshot,
-                "night_key": self._night_key.isoformat() if self._night_key else None,
-                "overridden": sorted(self.night.overridden),
-                "night": self.night.as_dict(),
-                "history": self.history[-HISTORY_NIGHTS:],
-            }
-        )
+        payload = self._payload()
+        # The minute check saves every time; most minutes nothing changed.
+        text = json.dumps(payload, sort_keys=True, default=str)
+        if text == self._saved:
+            return
+        await self._store.async_save(payload)
+        self._saved = text
+
+    def _payload(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "theme": self.theme,
+            "on_at": self.on_at.isoformat() if self.on_at else None,
+            "done_night": self.done_night.isoformat() if self.done_night else None,
+            "default_night": (
+                self.default_night.isoformat() if self.default_night else None
+            ),
+            "offset": self.offset,
+            "snapshot": self._snapshot,
+            "night_key": self._night_key.isoformat() if self._night_key else None,
+            "overridden": sorted(self.night.overridden),
+            "night": self.night.as_dict(),
+            "history": self.history[-HISTORY_NIGHTS:],
+        }
