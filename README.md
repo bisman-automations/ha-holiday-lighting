@@ -256,12 +256,17 @@ You need Python 3.14 for the current Home Assistant.
 ```bash
 python3.14 -m venv .venv && . .venv/bin/activate
 pip install -r requirements_test.txt
+pip install "$(python -c 'import json, homeassistant.components.frontend as f, pathlib; print(json.loads((pathlib.Path(f.__file__).parent / "manifest.json").read_text())["requirements"][0])')"
 ruff check . && ruff format --check .
 pytest
 ```
 
+The second `pip install` adds the Home Assistant frontend package that the
+installed Home Assistant uses. Holiday Lighting depends on the frontend for its
+sidebar page, so the tests can't set it up without it.
+
 To test against the oldest supported Home Assistant (2026.8), use Python 3.14 and
-`pip install -r requirements_test_min.txt` instead.
+`pip install -r requirements_test_min.txt` instead, then the same frontend line.
 
 CI runs the same checks on every push and pull request, on both Home Assistant
 versions, plus hassfest, HACS validation and the shared repo standards, using the
