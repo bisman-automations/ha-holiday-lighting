@@ -466,6 +466,9 @@ class HolidayLightingController:
                 night = stored.get("night") or {"overridden": stored.get("overridden")}
                 self.night = _NightState.from_dict(night)
             self.history = list(stored.get("history") or [])[-HISTORY_NIGHTS:]
+            # What's on disk: the first check after a start or reload then
+            # writes only if something really changed.
+            self._saved, self._saved_core = self._texts(stored)
 
         self._remove_stale_issues()
         self._unsubs.append(
@@ -1234,6 +1237,9 @@ class HolidayLightingController:
                 )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not read calendars %s: %s", entity_ids, err)
+            if self._calendar_checked is None or self._calendar_checked[0] != night:
+                # Last night's events say nothing about tonight.
+                self._calendar_active = set()
             return
         active: set[str] = set()
         for holiday in calendar_holidays:
@@ -1419,10 +1425,13 @@ class HolidayLightingController:
                 context=off_context,
             )
 
+        @callback
+        def _guard_over(_now: datetime) -> None:
+            # A callback: a plain function here would run in a worker thread.
+            self._stop_guard()
+
         unsub_state = async_track_state_change_event(self.hass, lights, _late_on)
-        unsub_timer = async_call_later(
-            self.hass, OFF_GUARD_SECONDS, lambda _now: self._stop_guard()
-        )
+        unsub_timer = async_call_later(self.hass, OFF_GUARD_SECONDS, _guard_over)
 
         def stop() -> None:
             unsub_state()

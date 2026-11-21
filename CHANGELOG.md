@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.4] - 2026-11-21
+
+### Fixed
+
+- **Game nights from the calendar.** If a calendar holiday's calendar couldn't be read on a new night, Holiday Lighting kept going by the night before and could show that holiday again. It now goes by the holiday dates until the calendar can be read.
+- **After turning the lights off.** For a minute after the lights turn off, Holiday Lighting turns back off any bulb a slow, earlier color command lights up again. Ending that minute ran outside Home Assistant's main loop, which isn't safe; it now runs where it should.
+
+### Changed
+
+- **One less write on each start.** After Home Assistant starts or the integration reloads (it does whenever you save a holiday), the first check no longer saves the same state again.
+
 ## [1.13.3] - 2026-11-20
 
 ### Changed
@@ -320,6 +331,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
+[1.13.4]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.3...v1.13.4
 [1.13.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.2...v1.13.3
 [1.13.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.1...v1.13.2
 [1.13.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.0...v1.13.1
