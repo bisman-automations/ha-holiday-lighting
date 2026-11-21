@@ -136,6 +136,9 @@ MEDIA_PLAYER_DOMAIN = "media_player"
 
 EVALUATE_INTERVAL = timedelta(minutes=1)
 CALENDAR_REFRESH = timedelta(minutes=15)
+# A show moves its colors every few seconds. When only that position changed,
+# it's written at most this often (and when Home Assistant stops).
+STEP_SAVE_DELAY = timedelta(minutes=15)
 # After turning the lights off, undo our own late "on" commands this long.
 OFF_GUARD_SECONDS = 60
 LIGHT_COMMAND_TIMEOUT = 15  # seconds
@@ -418,6 +421,10 @@ class HolidayLightingController:
         self._calendar_checked: tuple[date, datetime] | None = None
         # What was last written, so the minute check only writes on a change.
         self._saved: str | None = None
+        # The same without the color step, and whether a later write of a
+        # moved step is waiting.
+        self._saved_core: str | None = None
+        self._step_save_pending = False
         # The light sensor's last dark-or-not, so only a crossing re-checks.
         self._lux_dark_seen: bool | None = None
         self._our_contexts: deque[str] = deque(maxlen=64)
@@ -484,7 +491,7 @@ class HolidayLightingController:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
-        await self._async_save()
+        await self._async_save(now=True)
 
     # --- listeners ---------------------------------------------------------
 
@@ -1871,14 +1878,42 @@ class HolidayLightingController:
 
     # --- storage -----------------------------------------------------------
 
-    async def _async_save(self) -> None:
+    async def _async_save(self, *, now: bool = False) -> None:
         payload = self._payload()
         # The minute check saves every time; most minutes nothing changed.
-        text = json.dumps(payload, sort_keys=True, default=str)
+        text, core = self._texts(payload)
         if text == self._saved:
             return
+        if core == self._saved_core and not now:
+            # Only the show's color step moved (every few seconds during a
+            # show): write it later instead of every minute.
+            if not self._step_save_pending:
+                self._step_save_pending = True
+                self._store.async_delay_save(
+                    self._delayed_payload, STEP_SAVE_DELAY.total_seconds()
+                )
+            return
+        # Writing now also drops a waiting later write.
         await self._store.async_save(payload)
-        self._saved = text
+        self._step_save_pending = False
+        self._saved, self._saved_core = text, core
+
+    @callback
+    def _delayed_payload(self) -> dict[str, Any]:
+        """What a waiting later write saves: everything as it is then."""
+        payload = self._payload()
+        self._step_save_pending = False
+        self._saved, self._saved_core = self._texts(payload)
+        return payload
+
+    @staticmethod
+    def _texts(payload: dict[str, Any]) -> tuple[str, str]:
+        """The payload as text, with and without the color step."""
+        core = {key: value for key, value in payload.items() if key != "offset"}
+        return (
+            json.dumps(payload, sort_keys=True, default=str),
+            json.dumps(core, sort_keys=True, default=str),
+        )
 
     def _payload(self) -> dict[str, Any]:
         return {

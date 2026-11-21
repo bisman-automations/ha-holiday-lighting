@@ -62,6 +62,11 @@ async def async_setup_entry(
 class StatusSensor(HolidayLightingEntity, SensorEntity):
     """What the lights are doing right now."""
 
+    # The sun's height changes every minute; keep it out of history, as the
+    # Sun integration does, so the recorder doesn't store new attributes for
+    # this sensor every minute.
+    _unrecorded_attributes = frozenset({"sun_elevation"})
+
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = [
         STATUS_DISABLED,

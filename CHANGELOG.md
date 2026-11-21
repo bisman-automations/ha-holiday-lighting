@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3] - 2026-11-20
+
+### Changed
+
+- **Fewer writes during a show.** While the lights change colors, Holiday Lighting used to save its state every minute just to remember where the colors were, about 300 writes a night. That position is now saved at most every 15 minutes, and always when Home Assistant stops or the integration reloads. Everything else is still saved straight away.
+- **A smaller history database.** The Status sensor's sun height changes every minute, so Home Assistant stored a new set of its details every minute. The sun height is now left out of history, as Home Assistant's own Sun integration does. The sensor still shows it.
+
 ## [1.13.2] - 2026-11-20
 
 ### Fixed
@@ -313,6 +320,7 @@ First release.
 - One schedule applies to all holidays.
 - Requires Home Assistant 2026.2 or newer.
 
+[1.13.3]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.2...v1.13.3
 [1.13.2]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.1...v1.13.2
 [1.13.1]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/bisman-automations/ha-holiday-lighting/compare/v1.12.3...v1.13.0
